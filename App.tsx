@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Screen, UserStats, Minigame, ThemeId, AvatarId, StoreItem, Achievement, LeaderboardEntry } from './types';
-import { Video, Star, Brain, Music, Calculator, ClipboardList, Coins, Target, Zap, Activity, Wind, Eye, Square, LayoutGrid, Info, Home, Store, User, RotateCcw, Check, Sparkles, Infinity as InfinityIcon, Lock, Unlock, Grid, Link, Quote, AlertCircle, Type, Grid3X3, Palette, Search, Trophy, Medal, Crown, Ghost, Sun, Gamepad, CheckCircle, XCircle, Box, Copy, TrendingUp, CloudRain, ListOrdered, MousePointerClick, SunMedium, Moon, Cloud, Flower, Settings as SettingsIcon, Users, Clover, ArrowUpCircle, Flame, ThumbsUp, Play, CheckSquare } from 'lucide-react';
+import { Video, Star, Brain, Music, Calculator, ClipboardList, Coins, Target, Zap, Activity, Wind, Eye, Square, LayoutGrid, Info, Home, Store, User, RotateCcw, Check, Sparkles, Infinity as InfinityIcon, Lock, Unlock, Grid, Link, Quote, AlertCircle, Type, Grid3X3, Palette, Search, Trophy, Medal, Crown, Ghost, Sun, Gamepad, CheckCircle, XCircle, Box, Copy, TrendingUp, CloudRain, ListOrdered, MousePointerClick, SunMedium, Moon, Cloud, Flower, Settings as SettingsIcon, Users, Clover, ArrowUpCircle, Flame, ThumbsUp, Play, CheckSquare, HeartHandshake, WifiOff, SignalHigh } from 'lucide-react';
 
 import { setMuted } from './services/audioService';
 import MemoryGame from './components/MemoryGame';
@@ -137,6 +137,9 @@ interface PendingUnlock {
     type: LockType;
 }
 
+// 5 Minutes in milliseconds
+const FORCED_AD_INTERVAL = 5 * 60 * 1000;
+
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>(Screen.HOME);
   const [stats, setStats] = useState<UserStats>(INITIAL_STATS);
@@ -146,7 +149,15 @@ export default function App() {
   // Ad System
   const [showAdModal, setShowAdModal] = useState(false);
   const adCallbackRef = useRef<(() => void) | null>(null);
+  const [isForcedAd, setIsForcedAd] = useState(false);
   
+  // Forced Ad Logic
+  const lastAdTime = useRef<number>(Date.now());
+  const [pendingForcedAd, setPendingForcedAd] = useState(false);
+
+  // Connection Check
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
   // New Unlock Modal System
   const [pendingUnlock, setPendingUnlock] = useState<PendingUnlock | null>(null);
   const [pendingAdReward, setPendingAdReward] = useState<'NONE' | 'GAME_UNLOCK' | 'COINS' | 'GENERIC'>('NONE');
@@ -174,6 +185,62 @@ export default function App() {
     checkAchievements();
     setMuted(!stats.soundEnabled);
   }, [stats]);
+
+  // --- CONNECTIVITY CHECK ---
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    // Periodic check (Backup for when event listeners might miss specific conditions or for initial state confirmation)
+    const interval = setInterval(() => {
+        setIsOnline(navigator.onLine);
+    }, 5000);
+
+    return () => {
+        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('offline', handleOffline);
+        clearInterval(interval);
+    };
+  }, []);
+
+  // --- FORCED AD LOGIC ---
+  const isMenuScreen = (screen: Screen) => {
+      return [Screen.HOME, Screen.STORE, Screen.PROFILE, Screen.SETTINGS, Screen.RANKING, Screen.BETTING].includes(screen);
+  };
+
+  useEffect(() => {
+      const adTimer = setInterval(() => {
+          const now = Date.now();
+          if (now - lastAdTime.current > FORCED_AD_INTERVAL) {
+              // Time is up! But are we safe to show it?
+              if (isMenuScreen(currentScreen) && !showAdModal && !activeTutorial && !victoryData && !pendingUnlock && !levelUpData) {
+                  triggerForcedAd();
+              } else {
+                  // User is busy (playing or other modal), mark as pending
+                  setPendingForcedAd(true);
+              }
+          }
+      }, 10000); // Check every 10 seconds
+
+      return () => clearInterval(adTimer);
+  }, [currentScreen, showAdModal, activeTutorial, victoryData, pendingUnlock, levelUpData]);
+
+  // Check pending ad when screen changes (e.g. user finishes game and goes HOME)
+  useEffect(() => {
+      if (pendingForcedAd && isMenuScreen(currentScreen) && !showAdModal && !activeTutorial && !victoryData && !pendingUnlock && !levelUpData) {
+          triggerForcedAd();
+      }
+  }, [currentScreen, pendingForcedAd, showAdModal, activeTutorial, victoryData, pendingUnlock, levelUpData]);
+
+  const triggerForcedAd = () => {
+      setIsForcedAd(true);
+      setShowAdModal(true);
+      setPendingForcedAd(false);
+  };
+  // -----------------------
 
   const initLeaderboard = (userCoins: number) => {
       const entries: LeaderboardEntry[] = [];
@@ -255,16 +322,22 @@ export default function App() {
   const requestAd = (cb: () => void) => {
       adCallbackRef.current = cb;
       setPendingAdReward('GENERIC'); // Default generic reward
+      setIsForcedAd(false);
       setShowAdModal(true);
   };
 
   const requestAdForGameUnlock = () => {
       setPendingAdReward('GAME_UNLOCK');
+      setIsForcedAd(false);
       setShowAdModal(true);
   };
 
   const handleAdClosed = () => {
       setShowAdModal(false);
+      setIsForcedAd(false);
+      
+      // Reset timer whenever ANY ad is watched (good UX to not punish users who opt-in)
+      lastAdTime.current = Date.now();
       
       if (pendingAdReward === 'GAME_UNLOCK' && pendingUnlock?.game) {
           const gameId = pendingUnlock.game.id;
@@ -519,6 +592,20 @@ export default function App() {
     <div className={`min-h-screen font-sans transition-colors duration-500 ${THEMES[stats.currentTheme]}`}>
       <div className="max-w-md mx-auto h-screen flex flex-col shadow-2xl relative overflow-hidden bg-brand-bg/90 backdrop-blur-md">
         
+        {/* === OFFLINE WARNING MODAL === */}
+        {!isOnline && (
+            <div className="absolute inset-0 z-[99] bg-black/80 flex items-center justify-center p-6 backdrop-blur-sm animate-in fade-in">
+                <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl">
+                    <WifiOff size={64} className="mx-auto text-red-500 mb-6 animate-pulse" />
+                    <h2 className="text-2xl font-black text-gray-800 mb-2">Sem Internet</h2>
+                    <p className="text-gray-500 mb-8 text-lg leading-relaxed">O SábiaMente precisa de uma conexão ativa para gerar os desafios e salvar seu progresso.</p>
+                    <div className="bg-red-50 text-red-700 p-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2">
+                        <SignalHigh size={16}/> Verifique sua conexão
+                    </div>
+                </div>
+            </div>
+        )}
+
         {/* === HEADER === */}
         {currentScreen === Screen.HOME || currentScreen === Screen.STORE || currentScreen === Screen.PROFILE || currentScreen === Screen.SETTINGS || currentScreen === Screen.RANKING || currentScreen === Screen.BETTING ? (
              <div className="px-6 pt-6 pb-2 flex justify-between items-center z-10">
@@ -559,6 +646,26 @@ export default function App() {
                             <Flame size={14} className="fill-orange-500"/>
                             {stats.streak} Dias Seguidos
                         </div>
+                    </div>
+
+                    {/* Quick Shortcuts Bar */}
+                    <div className="grid grid-cols-4 gap-2">
+                        <button onClick={() => setCurrentScreen(Screen.STORE)} className="flex flex-col items-center gap-1 p-2 bg-white rounded-2xl shadow-sm active:scale-95 transition-transform border border-gray-100/50">
+                            <div className="bg-blue-100 p-3 rounded-full text-blue-600"><Store size={20}/></div>
+                            <span className="text-[10px] font-bold text-gray-600">Loja</span>
+                        </button>
+                        <button onClick={() => setCurrentScreen(Screen.BETTING)} className="flex flex-col items-center gap-1 p-2 bg-white rounded-2xl shadow-sm active:scale-95 transition-transform border border-gray-100/50">
+                            <div className="bg-purple-100 p-3 rounded-full text-purple-600"><Clover size={20}/></div>
+                            <span className="text-[10px] font-bold text-gray-600">Roleta</span>
+                        </button>
+                        <button onClick={() => setCurrentScreen(Screen.RANKING)} className="flex flex-col items-center gap-1 p-2 bg-white rounded-2xl shadow-sm active:scale-95 transition-transform border border-gray-100/50">
+                            <div className="bg-yellow-100 p-3 rounded-full text-yellow-600"><Users size={20}/></div>
+                            <span className="text-[10px] font-bold text-gray-600">Ranking</span>
+                        </button>
+                        <button onClick={() => setCurrentScreen(Screen.PROFILE)} className="flex flex-col items-center gap-1 p-2 bg-white rounded-2xl shadow-sm active:scale-95 transition-transform border border-gray-100/50">
+                            <div className="bg-orange-100 p-3 rounded-full text-orange-600"><Medal size={20}/></div>
+                            <span className="text-[10px] font-bold text-gray-600">Conquistas</span>
+                        </button>
                     </div>
                     
                     <div>
@@ -990,8 +1097,14 @@ export default function App() {
                 <div className="w-full h-56 bg-gray-800 rounded-3xl mb-8 flex items-center justify-center animate-pulse border border-gray-700">
                     <Video size={48} className="opacity-50"/>
                 </div>
-                <h3 className="text-2xl font-bold mb-2">Anúncio do Patrocinador</h3>
-                <p className="opacity-60 mb-12 text-center">Obrigado por apoiar o SábiaMente</p>
+                <h3 className="text-2xl font-bold mb-2">
+                    {isForcedAd ? "Apoio ao SábiaMente" : "Anúncio do Patrocinador"}
+                </h3>
+                <p className="opacity-60 mb-12 text-center max-w-xs leading-tight">
+                    {isForcedAd 
+                        ? "Este anúncio ajuda a manter o aplicativo gratuito para todos." 
+                        : "Obrigado por apoiar o SábiaMente"}
+                </p>
                 <button onClick={handleAdClosed} className="bg-white text-black px-10 py-4 rounded-full font-bold text-lg hover:scale-105 transition-transform">
                     Fechar X
                 </button>
