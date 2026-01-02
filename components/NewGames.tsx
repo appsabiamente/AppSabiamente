@@ -80,7 +80,7 @@ export const WordChainGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
     const [score, setScore] = useState(0);
     const [category, setCategory] = useState("Frutas");
     const [level, setLevel] = useState(1);
-    const [timeLeft, setTimeLeft] = useState(15);
+    const [timeLeft, setTimeLeft] = useState(30); // AUMENTADO PARA 30s
     const timerRef = useRef<any>(null);
     const [paused, setPaused] = useState(false);
     
@@ -92,7 +92,7 @@ export const WordChainGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
             "Frutas": "ABACATE", "Animais": "GATO", "Países": "BRASIL", "Cores": "AZUL", "Objetos de Casa": "CADEIRA"
         };
         setHistory([starters[randCat]]);
-        setTimeLeft(15);
+        setTimeLeft(30);
     }, [level]);
 
     useEffect(() => {
@@ -141,7 +141,7 @@ export const WordChainGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
             setInput("");
             const pts = 5 + (level * 2);
             setScore(s => s + pts);
-            setTimeLeft(15); 
+            setTimeLeft(30); // Resetar para 30s
             
             if (newHistory.length > 0 && newHistory.length % 4 === 0) {
                  alert(`Nível ${level} concluído! Dificuldade aumentando...`);
@@ -200,7 +200,8 @@ export const ZenFocusGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
     const [lives, setLives] = useState(3);
     const [gameOver, setGameOver] = useState(false);
     const reqRef = useRef<number>();
-    const speedMultiplier = 1.2 + (score / 100); 
+    // VELOCIDADE REDUZIDA: Base diminuída e fator de crescimento suavizado
+    const speedMultiplier = 0.8 + (score / 200); 
 
     useEffect(() => {
         if(gameOver) return;
@@ -211,11 +212,11 @@ export const ZenFocusGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
                 x: Math.random() * 80 + 10,
                 y: 100
             }]);
-        }, 900 / speedMultiplier); 
+        }, 1200 / speedMultiplier); // Mais tempo entre spawns
 
         const loop = () => {
             setItems(prev => {
-                const next = prev.map(i => ({...i, y: i.y - (0.6 * speedMultiplier)}));
+                const next = prev.map(i => ({...i, y: i.y - (0.4 * speedMultiplier)})); // Velocidade de queda reduzida
                 next.forEach(i => {
                     if (i.y < -10 && i.type === 'good') {
                         playFailureSound(0);
@@ -303,15 +304,16 @@ export const SumTargetGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
      const [target, setTarget] = useState(15);
      const [currentSum, setCurrentSum] = useState(0);
      const [options, setOptions] = useState<number[]>([]);
-     const [rounds, setRounds] = useState(0);
-     const [timeLeft, setTimeLeft] = useState(12);
+     const [timeLeft, setTimeLeft] = useState(15);
      const [score, setScore] = useState(0);
      const [paused, setPaused] = useState(false);
+     // NOVO: Estado para controlar o modal de vitória
+     const [showVictory, setShowVictory] = useState(false);
  
-     useEffect(() => { resetRound(); }, [rounds]);
+     useEffect(() => { resetRound(); }, []);
  
      useEffect(() => {
-         if (paused) return;
+         if (paused || showVictory) return; // Pausa se tiver vitória
          const t = setInterval(() => {
              setTimeLeft(prev => {
                  if (prev <= 1) {
@@ -325,14 +327,24 @@ export const SumTargetGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
              });
          }, 1000);
          return () => clearInterval(t);
-     }, [rounds, paused, score]);
+     }, [paused, score, showVictory]);
  
      const resetRound = () => {
          const t = Math.floor(Math.random() * 25) + 20; 
          setTarget(t);
          setCurrentSum(0);
-         setOptions(Array.from({length: 9}, () => Math.floor(Math.random() * 12) + 1));
-         setTimeLeft(12);
+         
+         // GARANTIA: Soma de todos >= alvo
+         let newOptions: number[] = [];
+         let totalSum = 0;
+         do {
+             newOptions = Array.from({length: 9}, () => Math.floor(Math.random() * 12) + 1);
+             totalSum = newOptions.reduce((acc, curr) => acc + curr, 0);
+         } while (totalSum < t); // Regenera se não for possível atingir o alvo
+         
+         setOptions(newOptions);
+         setTimeLeft(15);
+         setShowVictory(false);
      };
 
      const handleAdvantage = () => {
@@ -353,7 +365,7 @@ export const SumTargetGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
          if (newSum === target) {
              playSuccessSound();
              setScore(s => s + 5);
-             setRounds(r => r + 1);
+             setShowVictory(true); // Exibe modal em vez de apenas resetar
          } else if (newSum > target) {
              playFailureSound(0);
              alert("Passou do valor! Fim de Jogo.");
@@ -362,7 +374,7 @@ export const SumTargetGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
      };
  
      return (
-         <div className="flex flex-col h-full bg-brand-bg">
+         <div className="flex flex-col h-full bg-brand-bg relative">
              <GameHeader 
                 title="Soma Alvo" 
                 icon={<Target size={24} className="text-green-600"/>} 
@@ -373,6 +385,24 @@ export const SumTargetGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
                 advantageLabel="+10s (Vídeo)"
                 rightContent={<span className="font-bold text-red-500">{timeLeft}s</span>} 
             />
+            
+            {/* MODAL DE VITÓRIA CUSTOMIZADO */}
+            {showVictory && (
+                <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-50 p-6 animate-in fade-in">
+                    <div className="bg-white rounded-3xl p-8 w-full max-w-sm text-center shadow-2xl">
+                        <Trophy className="mx-auto text-yellow-500 mb-4 animate-bounce" size={64}/>
+                        <h2 className="text-2xl font-black text-gray-800 mb-2">Alvo Atingido!</h2>
+                        <p className="text-gray-500 mb-6">Você somou exatamente {target}.</p>
+                        <button 
+                            onClick={resetRound}
+                            className="w-full bg-brand-primary text-white py-4 rounded-xl font-bold text-lg hover:scale-105 transition-transform"
+                        >
+                            Próximo Nível
+                        </button>
+                    </div>
+                </div>
+            )}
+
              <div className="p-6 flex flex-col flex-grow">
                  <div className="bg-white p-6 rounded-3xl text-center shadow-soft mb-8">
                      <p className="text-gray-400 text-sm mb-1">Meta</p>
@@ -539,7 +569,8 @@ export const EstimateGame: React.FC<GameProps> = ({ onComplete, onExit, highScor
         setMaxTime(time);
         setTimeLeft(time);
 
-        const t = setTimeout(() => setShowDots(false), 2000); 
+        // DELAY REDUZIDO: De 2000 para 1000
+        const t = setTimeout(() => setShowDots(false), 1000); 
         return () => clearTimeout(t);
     }, [round]);
 
@@ -1277,7 +1308,7 @@ export const IntruderGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
 
 export const ProverbGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd }) => { 
     const [task, setTask] = useState<ProverbTask|null>(null); 
-    useEffect(()=>{generateProverbTask("general").then(setTask)},[]); 
+    useEffect(()=>{generateProverbTask().then(setTask)},[]); 
     if(!task) return <LoadingScreen />; 
     
     const handleAdvantage = () => {

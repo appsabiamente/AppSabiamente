@@ -49,7 +49,8 @@ const MathGame: React.FC<MathGameProps> = ({ onComplete, onExit, onRequestAd }) 
 
   const handleSelect = (val: number) => {
     if (val === answer) {
-        const newScore = score + 5;
+        // RECOMPENSA REDUZIDA: De 5 para 3
+        const newScore = score + 3;
         if (round < 5) {
             setRound(r => r + 1);
             setScore(newScore);

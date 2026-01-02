@@ -76,7 +76,8 @@ const MemoryGame: React.FC<MemoryGameProps> = ({ onComplete, onExit, onRequestAd
     setCards(gameCards);
     setFlippedCards([]);
     setIsLocked(false);
-    setTimeLeft(30 + (level * 10)); 
+    // TEMPO REDUZIDO: Antes era 30 + 10*Nivel, agora 20 + 5*Nivel
+    setTimeLeft(20 + (level * 5)); 
     setIsFrozen(false);
   };
 

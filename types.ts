@@ -36,7 +36,7 @@ export enum Screen {
 }
 
 export type ThemeId = 'garden' | 'ocean' | 'sunset' | 'lavender' | 'midnight';
-export type AvatarId = 'owl' | 'fox' | 'cat' | 'elephant' | 'turtle' | 'lion' | 'dragon' | 'phoenix';
+export type AvatarId = 'base' | 'medal' | 'trophy' | 'star' | 'lion' | 'dragon';
 
 export interface Achievement {
   id: string;

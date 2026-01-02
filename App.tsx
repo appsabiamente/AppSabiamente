@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Screen, UserStats, Minigame, ThemeId, AvatarId, StoreItem, Achievement, LeaderboardEntry } from './types';
-import { Video, Star, Brain, Music, Calculator, ClipboardList, Coins, Target, Zap, Activity, Wind, Eye, Square, LayoutGrid, Info, Home, Store, User, RotateCcw, Check, Sparkles, Infinity as InfinityIcon, Lock, Unlock, Grid, Link, Quote, AlertCircle, Type, Grid3X3, Palette, Search, Trophy, Medal, Crown, Ghost, Sun, Gamepad, CheckCircle, XCircle, Box, Copy, TrendingUp, CloudRain, ListOrdered, MousePointerClick, SunMedium, Moon, Cloud, Flower, Settings as SettingsIcon, Users, Clover, ArrowUpCircle, Flame, ThumbsUp, Play } from 'lucide-react';
+import { Video, Star, Brain, Music, Calculator, ClipboardList, Coins, Target, Zap, Activity, Wind, Eye, Square, LayoutGrid, Info, Home, Store, User, RotateCcw, Check, Sparkles, Infinity as InfinityIcon, Lock, Unlock, Grid, Link, Quote, AlertCircle, Type, Grid3X3, Palette, Search, Trophy, Medal, Crown, Ghost, Sun, Gamepad, CheckCircle, XCircle, Box, Copy, TrendingUp, CloudRain, ListOrdered, MousePointerClick, SunMedium, Moon, Cloud, Flower, Settings as SettingsIcon, Users, Clover, ArrowUpCircle, Flame, ThumbsUp, Play, CheckSquare } from 'lucide-react';
 
 import { setMuted } from './services/audioService';
 import MemoryGame from './components/MemoryGame';
@@ -39,11 +40,11 @@ const INITIAL_STATS: UserStats = {
   lastPlayedDate: '2000-01-01T00:00:00.000Z', 
   tutorialsSeen: [],
   unlockedThemes: ['garden'],
-  unlockedAvatars: ['owl'],
+  unlockedAvatars: ['base'],
   unlockedAchievements: [],
   unlockedGames: [], // Track purchased/ad-unlocked games
   currentTheme: 'garden',
-  currentAvatar: 'owl',
+  currentAvatar: 'base',
   highScores: {},
   soundEnabled: true,
   notificationsEnabled: false,
@@ -88,14 +89,18 @@ const THEMES: Record<ThemeId, string> = {
 };
 
 const AVATARS: Record<AvatarId, any> = {
-    owl: <Brain />, fox: <Zap />, cat: <Activity />, elephant: <Target />, turtle: <Wind />,
-    lion: <Crown />, dragon: <Ghost />, phoenix: <Sun />
+    base: <User />,
+    medal: <Medal />, 
+    trophy: <Trophy />, 
+    star: <Star />, 
+    lion: <Crown />, 
+    dragon: <Ghost />
 };
 
 const STORE_ITEMS: StoreItem[] = [
-    { id: 'av_fox', type: 'AVATAR', name: 'Raposa', cost: 500, value: 'fox' },
-    { id: 'av_cat', type: 'AVATAR', name: 'Gato', cost: 500, value: 'cat' },
-    { id: 'av_elephant', type: 'AVATAR', name: 'Elefante', cost: 1200, value: 'elephant' },
+    { id: 'av_medal', type: 'AVATAR', name: 'Medalha', cost: 250, value: 'medal' },
+    { id: 'av_trophy', type: 'AVATAR', name: 'Troféu', cost: 500, value: 'trophy' },
+    { id: 'av_star', type: 'AVATAR', name: 'Estrela', cost: 1000, value: 'star' },
     { id: 'av_lion', type: 'AVATAR', name: 'Leão (Nv. 5)', cost: 2000, value: 'lion', minLevel: 5 },
     { id: 'av_dragon', type: 'AVATAR', name: 'Dragão (Nv. 10)', cost: 5000, value: 'dragon', minLevel: 10 },
 ];
@@ -152,14 +157,12 @@ export default function App() {
   const [isRatingCheck, setIsRatingCheck] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem('sabiamente_stats_v6');
+    const saved = localStorage.getItem('sabiamente_stats_v8'); // Version bumped to v8 for Avatar changes
     if (saved) {
         const parsed = JSON.parse(saved);
         if (!parsed.leaderboard) parsed.leaderboard = [];
-        if (parsed.dailyStreak === undefined) parsed.dailyStreak = 0;
-        if (parsed.lastDailyClaim === undefined) parsed.lastDailyClaim = null;
-        if (parsed.hasRatedApp === undefined) parsed.hasRatedApp = false;
-        if (parsed.unlockedGames === undefined) parsed.unlockedGames = [];
+        if (!parsed.unlockedAvatars) parsed.unlockedAvatars = ['base'];
+        if (!parsed.currentAvatar) parsed.currentAvatar = 'base';
         setStats(prev => ({...prev, ...parsed}));
     } else {
         initLeaderboard(INITIAL_STATS.coins);
@@ -167,14 +170,14 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('sabiamente_stats_v6', JSON.stringify(stats));
+    localStorage.setItem('sabiamente_stats_v8', JSON.stringify(stats));
     checkAchievements();
     setMuted(!stats.soundEnabled);
   }, [stats]);
 
   const initLeaderboard = (userCoins: number) => {
       const entries: LeaderboardEntry[] = [];
-      entries.push({ id: 'user', name: 'Você', coins: userCoins, avatar: 'owl', isUser: true, streak: 0 });
+      entries.push({ id: 'user', name: 'Você', coins: userCoins, avatar: 'base', isUser: true, streak: 0 });
       FAKE_NAMES.forEach((name, i) => {
           const variance = Math.floor(Math.random() * 5000) + 500; 
           const randomStreak = Math.floor(Math.random() * 78) + 12;
@@ -182,7 +185,7 @@ export default function App() {
               id: `fake_${i}`, 
               name, 
               coins: variance, 
-              avatar: 'owl', 
+              avatar: 'base', 
               isUser: false,
               streak: randomStreak
           });
@@ -255,7 +258,6 @@ export default function App() {
       setShowAdModal(true);
   };
 
-  // Dedicated function for handling game unlocks via Ad
   const requestAdForGameUnlock = () => {
       setPendingAdReward('GAME_UNLOCK');
       setShowAdModal(true);
@@ -264,18 +266,15 @@ export default function App() {
   const handleAdClosed = () => {
       setShowAdModal(false);
       
-      // Handle Game Unlock specific flow
       if (pendingAdReward === 'GAME_UNLOCK' && pendingUnlock?.game) {
           const gameId = pendingUnlock.game.id;
           setStats(s => ({
               ...s,
               unlockedGames: [...s.unlockedGames, gameId]
           }));
-          // Auto start the game
           setCurrentScreen(pendingUnlock.game.screen);
           setPendingUnlock(null);
       } 
-      // Handle Generic Callbacks (Betting, Hints, Coins)
       else if (adCallbackRef.current) {
           adCallbackRef.current();
           adCallbackRef.current = null;
@@ -295,7 +294,6 @@ export default function App() {
       alert("Obrigado por avaliar! +100 Moedas adicionadas.");
   }
 
-  // --- STREAK LOGIC HELPER ---
   const getCalendarDaysDifference = (lastDateISO: string): number => {
       const now = new Date();
       const last = new Date(lastDateISO);
@@ -380,25 +378,21 @@ export default function App() {
   const tryStartGame = (game: Minigame) => {
     const isSpecialUnlocked = stats.unlockedGames.includes(game.id);
 
-    // 1. Check Level Unlock
     if (game.unlockLevel && stats.level < game.unlockLevel) {
         setPendingUnlock({ game, type: 'LEVEL' });
         return;
     }
 
-    // 2. Check Cost Unlock
     if (game.unlockCost && !isSpecialUnlocked) {
         setPendingUnlock({ game, type: 'COINS' });
         return;
     }
 
-    // 3. Check Ad Unlock
     if (game.unlockAd && !isSpecialUnlocked) {
         setPendingUnlock({ game, type: 'AD' });
         return;
     }
 
-    // 4. Start Game (Tutorial or Direct)
     if (!stats.tutorialsSeen.includes(game.id)) {
         setActiveTutorial({ title: game.title, text: game.tutorial, gameId: game.id });
     } else {
@@ -416,11 +410,9 @@ export default function App() {
               coins: s.coins - cost,
               unlockedGames: [...s.unlockedGames, pendingUnlock.game.id]
           }));
-          // Auto start
           const game = pendingUnlock.game;
           setPendingUnlock(null);
           
-          // Tutorial check
           if (!stats.tutorialsSeen.includes(game.id)) {
             setActiveTutorial({ title: game.title, text: game.tutorial, gameId: game.id });
           } else {
@@ -638,7 +630,6 @@ export default function App() {
                 </div>
             )}
             
-            {/* ... Other screens (Profile, Store, Ranking, Betting, Settings) are identical ... */}
             {currentScreen === Screen.PROFILE && (
                 <div className="px-6 pb-28 pt-4">
                     <h2 className="text-2xl font-bold mb-6 opacity-90">Suas Conquistas</h2>
@@ -694,6 +685,53 @@ export default function App() {
                     )}
                     <div className="space-y-8">
                         <section>
+                            <h3 className="font-bold mb-3 opacity-60 text-sm uppercase tracking-wider">Avatares</h3>
+                            <div className="grid grid-cols-3 gap-3">
+                                {/* Base Normal Avatar Button */}
+                                <button 
+                                    onClick={() => equipItem('AVATAR', 'base')} 
+                                    className={`p-2 rounded-2xl border-2 flex flex-col items-center gap-2 bg-white shadow-sm transition-all ${stats.currentAvatar === 'base' ? 'border-brand-primary ring-2 ring-brand-primary/20' : 'border-transparent'}`}
+                                >
+                                    <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center text-gray-600 relative">
+                                        {AVATARS['base']}
+                                    </div>
+                                    <div className="text-center">
+                                        <span className="block text-[10px] font-bold leading-tight">Normal</span>
+                                        <span className="flex items-center justify-center text-[9px] gap-1 bg-green-100 px-2 py-1 rounded-lg text-green-700 font-bold mt-1">
+                                            {stats.currentAvatar === 'base' ? 'Equipado' : 'Adquirido'}
+                                        </span>
+                                    </div>
+                                </button>
+
+                                {STORE_ITEMS.filter(i => i.type === 'AVATAR').map(item => {
+                                    const unlocked = stats.unlockedAvatars.includes(item.value as AvatarId);
+                                    const lockedByLevel = item.minLevel && stats.level < item.minLevel;
+                                    const isActive = stats.currentAvatar === item.value;
+                                    return (
+                                        <button key={item.id} onClick={() => unlocked ? equipItem('AVATAR', item.value) : buyItem(item)} className={`p-2 rounded-2xl border-2 flex flex-col items-center gap-2 bg-white shadow-sm transition-all ${isActive ? 'border-brand-primary ring-2 ring-brand-primary/20' : 'border-transparent'}`}>
+                                            <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center text-gray-600 relative">
+                                                {AVATARS[item.value as AvatarId]}
+                                                {lockedByLevel && <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center"><Lock size={16} className="text-white"/></div>}
+                                            </div>
+                                            <div className="text-center">
+                                                <span className="block text-[10px] font-bold leading-tight">{item.name}</span>
+                                                {!unlocked ? (
+                                                    <span className="flex items-center justify-center text-[10px] gap-1 bg-yellow-100 px-2 py-1 rounded-lg text-yellow-700 font-bold mt-1">
+                                                        {lockedByLevel ? `Nv. ${item.minLevel}` : <><Coins size={10}/> {item.cost}</>}
+                                                    </span>
+                                                ) : (
+                                                    <span className={`flex items-center justify-center text-[9px] gap-1 px-2 py-1 rounded-lg font-bold mt-1 ${isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                                                        {isActive ? 'Equipado' : 'Adquirido'}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </button>
+                                    )
+                                })}
+                            </div>
+                        </section>
+
+                        <section>
                             <h3 className="font-bold mb-3 opacity-60 text-sm uppercase tracking-wider">Temas</h3>
                             <button onClick={()=>equipItem('THEME', 'garden')} className={`w-full p-4 mb-4 rounded-2xl border-2 flex items-center gap-4 bg-white ${stats.currentTheme === 'garden' ? 'border-brand-primary' : 'border-gray-100'}`}>
                                 <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center"><Sun className="text-green-600"/></div>
@@ -711,25 +749,6 @@ export default function App() {
                                             </div>
                                             <span className="font-bold text-sm text-gray-800 capitalize">{themeId}</span>
                                             {isActive && <span className="text-xs font-bold text-brand-primary flex items-center gap-1"><Check size={12}/> Usando</span>}
-                                        </button>
-                                    )
-                                })}
-                            </div>
-                        </section>
-                        <section>
-                            <h3 className="font-bold mb-3 opacity-60 text-sm uppercase tracking-wider">Avatares</h3>
-                            <div className="grid grid-cols-3 gap-3">
-                                {STORE_ITEMS.filter(i => i.type === 'AVATAR').map(item => {
-                                    const unlocked = stats.unlockedAvatars.includes(item.value as AvatarId);
-                                    const lockedByLevel = item.minLevel && stats.level < item.minLevel;
-                                    const isActive = stats.currentAvatar === item.value;
-                                    return (
-                                        <button key={item.id} onClick={() => unlocked ? equipItem('AVATAR', item.value) : buyItem(item)} className={`p-2 rounded-2xl border-2 flex flex-col items-center gap-2 bg-white shadow-sm ${isActive ? 'border-brand-primary' : 'border-transparent'}`}>
-                                            <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center text-gray-600 relative">
-                                                {AVATARS[item.value as AvatarId]}
-                                                {lockedByLevel && <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center"><Lock size={16} className="text-white"/></div>}
-                                            </div>
-                                            {!unlocked && <span className="flex items-center text-[10px] gap-1 bg-yellow-100 px-2 py-1 rounded-lg text-yellow-700 font-bold">{lockedByLevel ? `Nv. ${item.minLevel}` : item.cost}</span>}
                                         </button>
                                     )
                                 })}
