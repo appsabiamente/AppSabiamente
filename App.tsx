@@ -1,0 +1,984 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { Screen, UserStats, Minigame, ThemeId, AvatarId, StoreItem, Achievement, LeaderboardEntry } from './types';
+import { Video, Star, Brain, Music, Calculator, ClipboardList, Coins, Target, Zap, Activity, Wind, Eye, Square, LayoutGrid, Info, Home, Store, User, RotateCcw, Check, Sparkles, Infinity as InfinityIcon, Lock, Unlock, Grid, Link, Quote, AlertCircle, Type, Grid3X3, Palette, Search, Trophy, Medal, Crown, Ghost, Sun, Gamepad, CheckCircle, XCircle, Box, Copy, TrendingUp, CloudRain, ListOrdered, MousePointerClick, SunMedium, Moon, Cloud, Flower, Settings as SettingsIcon, Users, Clover, ArrowUpCircle, Flame, ThumbsUp, Play } from 'lucide-react';
+
+import { setMuted } from './services/audioService';
+import MemoryGame from './components/MemoryGame';
+import TriviaGame from './components/TriviaGame';
+import MathGame from './components/MathGame';
+import SequenceGame from './components/SequenceGame';
+import SoundGame from './components/SoundGame';
+import TreeOfMind from './components/TreeOfMind';
+import Ranking from './components/Ranking';
+import Betting from './components/Betting';
+import Settings from './components/Settings';
+import {
+  IntruderGame,
+  ProverbGame,
+  ScrambleGame,
+  WordChainGame,
+  ZenFocusGame,
+  SumTargetGame,
+  PatternGame,
+  EstimateGame,
+  RotationGame,
+  ColorMatchGame,
+  HiddenObjectGame,
+  CardGame,
+  MathRainGame,
+  MovingHuntGame
+} from './components/NewGames';
+
+const INITIAL_STATS: UserStats = {
+  coins: 0,
+  streak: 0, 
+  totalGamesPlayed: 0,
+  level: 1,
+  experience: 0,
+  // Date far in the past ensures the first game ever counts as Day 1
+  lastPlayedDate: '2000-01-01T00:00:00.000Z', 
+  tutorialsSeen: [],
+  unlockedThemes: ['garden'],
+  unlockedAvatars: ['owl'],
+  unlockedAchievements: [],
+  unlockedGames: [], // Track purchased/ad-unlocked games
+  currentTheme: 'garden',
+  currentAvatar: 'owl',
+  highScores: {},
+  soundEnabled: true,
+  notificationsEnabled: false,
+  leaderboard: [],
+  lastDailyClaim: null,
+  dailyStreak: 0,
+  hasRatedApp: false
+};
+
+const FAKE_NAMES = [
+    "Roberto Almeida", 
+    "Ana Paula Souza", 
+    "Carlos Pereira", 
+    "Lúcia Fernandes", 
+    "Dr. Marcelo Lima", 
+    "Sônia Regina", 
+    "Paulo Santos", 
+    "Beatriz Costa", 
+    "Ricardo Oliveira", 
+    "Helena Martins"
+];
+
+const ACHIEVEMENTS: Achievement[] = [
+    { id: 'first_step', title: 'Primeiro Passo', description: 'Complete 1 jogo.', icon: 'Star', unlocked: false, reward: 20, condition: s => s.totalGamesPlayed >= 1 },
+    { id: 'rich', title: 'Pote de Ouro', description: 'Acumule 500 moedas.', icon: 'Coins', unlocked: false, reward: 50, condition: s => s.coins >= 500 },
+    { id: 'wise', title: 'Sábio', description: 'Alcance o nível 5.', icon: 'Brain', unlocked: false, reward: 100, condition: s => s.level >= 5 },
+    { id: 'master', title: 'Mestre da Mente', description: 'Alcance o nível 10.', icon: 'Crown', unlocked: false, reward: 200, condition: s => s.level >= 10 },
+    { id: 'expert', title: 'Especialista', description: 'Complete 50 jogos.', icon: 'Zap', unlocked: false, reward: 150, condition: s => s.totalGamesPlayed >= 50 },
+    { id: 'veteran', title: 'Veterano', description: 'Jogue 100 vezes.', icon: 'Shield', unlocked: false, reward: 300, condition: s => s.totalGamesPlayed >= 100 },
+    { id: 'brilliant', title: 'Mente Brilhante', description: 'Alcance o Nível 20.', icon: 'Sun', unlocked: false, reward: 500, condition: s => s.level >= 20 },
+    { id: 'collector', title: 'Colecionador', description: 'Tenha 3 avatares.', icon: 'User', unlocked: false, reward: 250, condition: s => s.unlockedAvatars.length >= 3 },
+    { id: 'millionaire', title: 'Tesouro', description: 'Acumule 2000 moedas.', icon: 'Coins', unlocked: false, reward: 400, condition: s => s.coins >= 2000 },
+    { id: 'unstoppable', title: 'Imparável', description: 'Atinja Nível 30.', icon: 'Zap', unlocked: false, reward: 1000, condition: s => s.level >= 30 }
+];
+
+const THEMES: Record<ThemeId, string> = {
+    garden: 'bg-brand-bg text-gray-900',
+    ocean: 'bg-cyan-50 text-slate-900',
+    sunset: 'bg-orange-50 text-orange-900',
+    lavender: 'bg-purple-50 text-purple-900',
+    midnight: 'bg-slate-900 text-white'
+};
+
+const AVATARS: Record<AvatarId, any> = {
+    owl: <Brain />, fox: <Zap />, cat: <Activity />, elephant: <Target />, turtle: <Wind />,
+    lion: <Crown />, dragon: <Ghost />, phoenix: <Sun />
+};
+
+const STORE_ITEMS: StoreItem[] = [
+    { id: 'av_fox', type: 'AVATAR', name: 'Raposa', cost: 500, value: 'fox' },
+    { id: 'av_cat', type: 'AVATAR', name: 'Gato', cost: 500, value: 'cat' },
+    { id: 'av_elephant', type: 'AVATAR', name: 'Elefante', cost: 1200, value: 'elephant' },
+    { id: 'av_lion', type: 'AVATAR', name: 'Leão (Nv. 5)', cost: 2000, value: 'lion', minLevel: 5 },
+    { id: 'av_dragon', type: 'AVATAR', name: 'Dragão (Nv. 10)', cost: 5000, value: 'dragon', minLevel: 10 },
+];
+
+const GAMES: Minigame[] = [
+  // Infinite / Hard
+  { id: 'chain', screen: Screen.GAME_WORD_CHAIN, title: 'Corrente', description: 'Palavras', icon: 'Link', category: 'Linguagem', color: 'text-blue-600 bg-blue-100', tutorial: 'Digite palavras da categoria certa.', unlockLevel: 1 },
+  { id: 'zen', screen: Screen.GAME_ZEN_FOCUS, title: 'Foco Zen', description: 'Infinito', icon: 'Eye', category: 'Zen', color: 'text-teal-600 bg-teal-100', tutorial: 'Toque apenas nos círculos.', unlockLevel: 1 },
+  { id: 'sum', screen: Screen.GAME_SUM_TARGET, title: 'Soma Alvo', description: 'Infinito', icon: 'Target', category: 'Raciocínio', color: 'text-green-600 bg-green-100', tutorial: 'Atinga a soma alvo.', unlockLevel: 1 },
+  { id: 'cards', screen: Screen.GAME_CARDS, title: 'Cartas', description: 'Sorte', icon: 'Copy', category: 'Clássico', color: 'text-red-600 bg-red-100', tutorial: 'Maior ou menor?', unlockLevel: 1 },
+
+  // Daily Standards
+  { id: 'mem', screen: Screen.GAME_MEMORY, title: 'Memória', description: 'Pares', icon: 'Brain', category: 'Memória', color: 'text-indigo-600 bg-indigo-100', tutorial: 'Encontre os pares.', unlockLevel: 1 },
+  { id: 'triv', screen: Screen.GAME_TRIVIA, title: 'Sabedoria', description: 'Quiz', icon: 'Brain', category: 'Linguagem', color: 'text-blue-600 bg-blue-100', tutorial: 'Responda corretamente.', unlockLevel: 1 },
+  { id: 'math', screen: Screen.GAME_MATH, title: 'Cálculo', description: 'Compras', icon: 'Calculator', category: 'Raciocínio', color: 'text-emerald-600 bg-emerald-100', tutorial: 'Faça as contas.', unlockLevel: 1 },
+  { id: 'prov', screen: Screen.GAME_PROVERB, title: 'Ditados', description: 'Completar', icon: 'Quote', category: 'Linguagem', color: 'text-amber-600 bg-amber-100', tutorial: 'Complete a frase.', unlockLevel: 1 },
+  
+  // Specific Unlocks
+  { id: 'patt', screen: Screen.GAME_PATTERN, title: 'Padrões', description: 'Visual', icon: 'Grid3X3', category: 'Memória', color: 'text-purple-600 bg-purple-100', tutorial: 'Repita o padrão.', unlockLevel: 1 },
+  { id: 'est', screen: Screen.GAME_ESTIMATE, title: 'Estimativa', description: 'Qtd.', icon: 'Activity', category: 'Raciocínio', color: 'text-orange-600 bg-orange-100', tutorial: 'Estime a quantidade.', unlockLevel: 1 },
+  
+  // UNLOCKABLE GAMES
+  { id: 'rot', screen: Screen.GAME_ROTATION, title: 'Rotação', description: 'Espacial', icon: 'RotateCcw', category: 'Raciocínio', color: 'text-cyan-600 bg-cyan-100', tutorial: 'Qual a figura rodada?', unlockAd: true },
+  { id: 'rain', screen: Screen.GAME_MATH_RAIN, title: 'Chuva', description: 'Rápido', icon: 'CloudRain', category: 'Raciocínio', color: 'text-blue-600 bg-blue-100', tutorial: 'Resolva antes de cair.', unlockLevel: 3 },
+  { id: 'col', screen: Screen.GAME_COLOR_MATCH, title: 'Cores', description: 'Rápido', icon: 'Palette', category: 'Atenção', color: 'text-pink-600 bg-pink-100', tutorial: 'A cor combina?', unlockLevel: 5 },
+  { id: 'mov', screen: Screen.GAME_MOVING_HUNT, title: 'Caça', description: 'Foco', icon: 'MousePointerClick', category: 'Atenção', color: 'text-red-600 bg-red-100', tutorial: 'Ache o único.', unlockLevel: 10 },
+  { id: 'hid', screen: Screen.GAME_HIDDEN, title: 'Oculto', description: 'Foco', icon: 'Search', category: 'Atenção', color: 'text-gray-600 bg-gray-200', tutorial: 'Encontre o objeto.', unlockCost: 10000 },
+];
+
+// Types for Unlock State
+type LockType = 'LEVEL' | 'COINS' | 'AD';
+interface PendingUnlock {
+    game: Minigame;
+    type: LockType;
+}
+
+export default function App() {
+  const [currentScreen, setCurrentScreen] = useState<Screen>(Screen.HOME);
+  const [stats, setStats] = useState<UserStats>(INITIAL_STATS);
+  const [activeTutorial, setActiveTutorial] = useState<{title: string, text: string, gameId: string} | null>(null);
+  const [victoryData, setVictoryData] = useState<{score: number, gameId: string} | null>(null);
+  
+  // Ad System
+  const [showAdModal, setShowAdModal] = useState(false);
+  const adCallbackRef = useRef<(() => void) | null>(null);
+  
+  // New Unlock Modal System
+  const [pendingUnlock, setPendingUnlock] = useState<PendingUnlock | null>(null);
+  const [pendingAdReward, setPendingAdReward] = useState<'NONE' | 'GAME_UNLOCK' | 'COINS' | 'GENERIC'>('NONE');
+
+  const [unlockedAchievement, setUnlockedAchievement] = useState<Achievement | null>(null);
+  const [levelUpData, setLevelUpData] = useState<{level: number, reward: number} | null>(null);
+  const [streakPopupValue, setStreakPopupValue] = useState<number | null>(null);
+  const [isRatingCheck, setIsRatingCheck] = useState(false);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('sabiamente_stats_v6');
+    if (saved) {
+        const parsed = JSON.parse(saved);
+        if (!parsed.leaderboard) parsed.leaderboard = [];
+        if (parsed.dailyStreak === undefined) parsed.dailyStreak = 0;
+        if (parsed.lastDailyClaim === undefined) parsed.lastDailyClaim = null;
+        if (parsed.hasRatedApp === undefined) parsed.hasRatedApp = false;
+        if (parsed.unlockedGames === undefined) parsed.unlockedGames = [];
+        setStats(prev => ({...prev, ...parsed}));
+    } else {
+        initLeaderboard(INITIAL_STATS.coins);
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('sabiamente_stats_v6', JSON.stringify(stats));
+    checkAchievements();
+    setMuted(!stats.soundEnabled);
+  }, [stats]);
+
+  const initLeaderboard = (userCoins: number) => {
+      const entries: LeaderboardEntry[] = [];
+      entries.push({ id: 'user', name: 'Você', coins: userCoins, avatar: 'owl', isUser: true, streak: 0 });
+      FAKE_NAMES.forEach((name, i) => {
+          const variance = Math.floor(Math.random() * 5000) + 500; 
+          const randomStreak = Math.floor(Math.random() * 78) + 12;
+          entries.push({ 
+              id: `fake_${i}`, 
+              name, 
+              coins: variance, 
+              avatar: 'owl', 
+              isUser: false,
+              streak: randomStreak
+          });
+      });
+      setStats(s => ({...s, leaderboard: entries}));
+  };
+
+  const refreshRanking = () => {
+      setStats(prev => {
+          const updated = prev.leaderboard.map(entry => {
+              if (entry.isUser) return entry;
+              const change = Math.floor(Math.random() * 100) - 20; 
+              return { ...entry, coins: Math.max(0, entry.coins + change) };
+          });
+          return { ...prev, leaderboard: updated };
+      });
+  };
+
+  const updateLeaderboard = (userEarned: number) => {
+      setStats(prev => {
+          const newLeaderboard = prev.leaderboard.map(entry => {
+              if (entry.isUser) {
+                  return { ...entry, coins: prev.coins + userEarned, avatar: prev.currentAvatar, streak: prev.streak };
+              } else {
+                  const gain = Math.floor(Math.random() * (userEarned > 0 ? userEarned * 1.2 : 5));
+                  return { ...entry, coins: entry.coins + gain };
+              }
+          });
+          return { ...prev, leaderboard: newLeaderboard };
+      });
+  };
+
+  const checkAchievements = () => {
+      let newUnlock = false;
+      const updatedList = [...stats.unlockedAchievements];
+      let coinsToAdd = 0;
+
+      ACHIEVEMENTS.forEach(ach => {
+          if (!updatedList.includes(ach.id) && ach.condition(stats)) {
+              updatedList.push(ach.id);
+              newUnlock = true;
+              coinsToAdd += ach.reward;
+              setUnlockedAchievement(ach); 
+          }
+      });
+      if(newUnlock) {
+          setStats(s => ({...s, coins: s.coins + coinsToAdd, unlockedAchievements: updatedList}));
+          setTimeout(() => setUnlockedAchievement(null), 5000); 
+      }
+  };
+
+  const handleDailyClaim = (rewardAmount: number) => {
+      const today = new Date().toDateString();
+      setStats(s => {
+          let newStreak = s.dailyStreak + 1;
+          
+          return {
+              ...s,
+              coins: s.coins + rewardAmount,
+              lastDailyClaim: today,
+              dailyStreak: newStreak,
+          }
+      });
+      alert(`Recebido! +${rewardAmount} moedas.`);
+  };
+
+  const requestAd = (cb: () => void) => {
+      adCallbackRef.current = cb;
+      setPendingAdReward('GENERIC'); // Default generic reward
+      setShowAdModal(true);
+  };
+
+  // Dedicated function for handling game unlocks via Ad
+  const requestAdForGameUnlock = () => {
+      setPendingAdReward('GAME_UNLOCK');
+      setShowAdModal(true);
+  };
+
+  const handleAdClosed = () => {
+      setShowAdModal(false);
+      
+      // Handle Game Unlock specific flow
+      if (pendingAdReward === 'GAME_UNLOCK' && pendingUnlock?.game) {
+          const gameId = pendingUnlock.game.id;
+          setStats(s => ({
+              ...s,
+              unlockedGames: [...s.unlockedGames, gameId]
+          }));
+          // Auto start the game
+          setCurrentScreen(pendingUnlock.game.screen);
+          setPendingUnlock(null);
+      } 
+      // Handle Generic Callbacks (Betting, Hints, Coins)
+      else if (adCallbackRef.current) {
+          adCallbackRef.current();
+          adCallbackRef.current = null;
+      }
+      
+      setPendingAdReward('NONE');
+  };
+
+  const handleRateApp = () => {
+      window.open("https://play.google.com/store/apps", "_blank");
+      setIsRatingCheck(true);
+  }
+
+  const confirmRating = () => {
+      setStats(s => ({...s, coins: s.coins + 100, hasRatedApp: true}));
+      setIsRatingCheck(false);
+      alert("Obrigado por avaliar! +100 Moedas adicionadas.");
+  }
+
+  // --- STREAK LOGIC HELPER ---
+  const getCalendarDaysDifference = (lastDateISO: string): number => {
+      const now = new Date();
+      const last = new Date(lastDateISO);
+      const currentCalendarDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const lastCalendarDate = new Date(last.getFullYear(), last.getMonth(), last.getDate());
+      const msPerDay = 1000 * 60 * 60 * 24;
+      const diffTime = currentCalendarDate.getTime() - lastCalendarDate.getTime();
+      return Math.floor(diffTime / msPerDay);
+  };
+
+  const handleGameComplete = (score: number) => {
+      const currentGame = GAMES.find(g => g.screen === currentScreen);
+      const gameId = currentGame?.id || 'unknown';
+      setVictoryData({ score, gameId });
+      
+      const newHighScores = { ...stats.highScores };
+      if (score > (newHighScores[gameId] || 0)) {
+          newHighScores[gameId] = score;
+      }
+
+      let newExp = stats.experience;
+      let newLevel = stats.level;
+      let levelUpReward = 0;
+      let newCoins = stats.coins + score;
+
+      if (score > 0) {
+          newExp += 10;
+          if (newExp >= 100) {
+              newLevel += 1;
+              newExp = newExp - 100;
+              levelUpReward = newLevel * 50; 
+              newCoins += levelUpReward;
+              setLevelUpData({ level: newLevel, reward: levelUpReward });
+          }
+      }
+
+      let newStreak = stats.streak;
+      let streakUpdated = false;
+
+      if (score > 0) {
+          const daysDiff = getCalendarDaysDifference(stats.lastPlayedDate);
+
+          if (daysDiff === 0) {
+          } else if (daysDiff === 1) {
+              newStreak = stats.streak + 1;
+              streakUpdated = true;
+              setStreakPopupValue(newStreak);
+          } else {
+              newStreak = 1;
+              streakUpdated = true;
+              setStreakPopupValue(1); 
+          }
+      }
+
+      setStats(prev => ({
+            ...prev,
+            coins: newCoins,
+            totalGamesPlayed: prev.totalGamesPlayed + 1,
+            experience: newExp,
+            level: newLevel,
+            highScores: newHighScores,
+            lastPlayedDate: new Date().toISOString(),
+            streak: newStreak,
+            leaderboard: streakUpdated ? prev.leaderboard.map(e => e.isUser ? {...e, streak: newStreak} : e) : prev.leaderboard
+      }));
+      
+      updateLeaderboard(score);
+  };
+
+  const handleRestart = () => {
+      setVictoryData(null);
+      const s = currentScreen;
+      setCurrentScreen(Screen.HOME);
+      setTimeout(() => setCurrentScreen(s), 50);
+  };
+
+  const handleGoHome = () => {
+      setVictoryData(null);
+      setCurrentScreen(Screen.HOME);
+  };
+
+  const tryStartGame = (game: Minigame) => {
+    const isSpecialUnlocked = stats.unlockedGames.includes(game.id);
+
+    // 1. Check Level Unlock
+    if (game.unlockLevel && stats.level < game.unlockLevel) {
+        setPendingUnlock({ game, type: 'LEVEL' });
+        return;
+    }
+
+    // 2. Check Cost Unlock
+    if (game.unlockCost && !isSpecialUnlocked) {
+        setPendingUnlock({ game, type: 'COINS' });
+        return;
+    }
+
+    // 3. Check Ad Unlock
+    if (game.unlockAd && !isSpecialUnlocked) {
+        setPendingUnlock({ game, type: 'AD' });
+        return;
+    }
+
+    // 4. Start Game (Tutorial or Direct)
+    if (!stats.tutorialsSeen.includes(game.id)) {
+        setActiveTutorial({ title: game.title, text: game.tutorial, gameId: game.id });
+    } else {
+        setCurrentScreen(game.screen);
+    }
+  };
+  
+  const handleBuyGame = () => {
+      if (!pendingUnlock || !pendingUnlock.game.unlockCost) return;
+      const cost = pendingUnlock.game.unlockCost;
+      
+      if (stats.coins >= cost) {
+          setStats(s => ({
+              ...s,
+              coins: s.coins - cost,
+              unlockedGames: [...s.unlockedGames, pendingUnlock.game.id]
+          }));
+          // Auto start
+          const game = pendingUnlock.game;
+          setPendingUnlock(null);
+          
+          // Tutorial check
+          if (!stats.tutorialsSeen.includes(game.id)) {
+            setActiveTutorial({ title: game.title, text: game.tutorial, gameId: game.id });
+          } else {
+            setCurrentScreen(game.screen);
+          }
+      }
+  };
+
+  const finishTutorial = () => {
+    if (activeTutorial) {
+        setStats(prev => ({...prev, tutorialsSeen: [...prev.tutorialsSeen, activeTutorial.gameId]}));
+        const game = GAMES.find(g => g.id === activeTutorial.gameId);
+        if (game) setCurrentScreen(game.screen);
+        setActiveTutorial(null);
+    }
+  };
+
+  const buyItem = (item: StoreItem) => {
+      if(item.minLevel && stats.level < item.minLevel) {
+          alert(`Precisa Nível ${item.minLevel}!`);
+          return;
+      }
+      if (stats.coins >= item.cost) {
+          if (item.type === 'THEME') {
+              setStats(s => ({
+                  ...s, 
+                  coins: s.coins - item.cost, 
+                  unlockedThemes: [...s.unlockedThemes, item.value as ThemeId], 
+                  currentTheme: item.value as ThemeId 
+              }));
+          } else {
+              setStats(s => ({
+                  ...s, 
+                  coins: s.coins - item.cost, 
+                  unlockedAvatars: [...s.unlockedAvatars, item.value as AvatarId], 
+                  currentAvatar: item.value as AvatarId
+              }));
+          }
+      } else {
+          alert("Moedas insuficientes!");
+      }
+  };
+
+  const equipItem = (type: 'THEME'|'AVATAR', val: string) => {
+      if (type === 'THEME') setStats(s => ({...s, currentTheme: val as ThemeId}));
+      else setStats(s => ({...s, currentAvatar: val as AvatarId}));
+  };
+
+  const toggleSound = () => {
+      setStats(prev => ({ ...prev, soundEnabled: !prev.soundEnabled }));
+  };
+
+  const watchAdForCoins = () => {
+      requestAd(() => {
+          const reward = 20;
+          setStats(s => ({ ...s, coins: s.coins + reward }));
+          alert(`Você ganhou ${reward} moedas!`);
+      });
+  };
+
+  const renderGame = () => {
+      const props = { onComplete: handleGameComplete, onExit: handleGoHome, onRequestAd: requestAd };
+      const getScore = (id: string) => stats.highScores[id] || 0;
+
+      switch(currentScreen) {
+          case Screen.GAME_MEMORY: return <MemoryGame {...props} highScore={getScore('mem')} />;
+          case Screen.GAME_TRIVIA: return <TriviaGame {...props} userCoins={stats.coins} onUseCoins={()=>{return true}} />;
+          case Screen.GAME_MATH: return <MathGame {...props} />;
+          case Screen.GAME_SEQUENCE: return <SequenceGame {...props} />;
+          case Screen.GAME_SOUND: return <SoundGame {...props} />;
+          case Screen.GAME_INTRUDER: return <IntruderGame {...props} />;
+          case Screen.GAME_PROVERB: return <ProverbGame {...props} />;
+          case Screen.GAME_SCRAMBLE: return <ScrambleGame {...props} />;
+          case Screen.GAME_WORD_CHAIN: return <WordChainGame {...props} />;
+          case Screen.GAME_ZEN_FOCUS: return <ZenFocusGame {...props} />;
+          case Screen.GAME_SUM_TARGET: return <SumTargetGame {...props} />;
+          case Screen.GAME_PATTERN: return <PatternGame {...props} highScore={getScore('patt')} />;
+          case Screen.GAME_ESTIMATE: return <EstimateGame {...props} highScore={getScore('est')} />;
+          case Screen.GAME_ROTATION: return <RotationGame {...props} />;
+          case Screen.GAME_COLOR_MATCH: return <ColorMatchGame {...props} highScore={getScore('col')} />;
+          case Screen.GAME_HIDDEN: return <HiddenObjectGame {...props} highScore={getScore('hid')} />;
+          case Screen.GAME_CARDS: return <CardGame {...props} highScore={getScore('cards')} />;
+          case Screen.GAME_MATH_RAIN: return <MathRainGame {...props} />;
+          case Screen.GAME_MOVING_HUNT: return <MovingHuntGame {...props} highScore={getScore('mov')} />;
+          default: return <div className="p-8 text-center"><button onClick={handleGoHome}>Voltar</button></div>;
+      }
+  };
+
+  const renderIcon = (iconName: string, size: number) => {
+    const icons: any = { Link, Eye, Target, Brain, Calculator, Quote, AlertCircle, Type, Grid3X3, Music, Zap, Star, Activity, RotateCcw, Palette, Search, Box, Copy, TrendingUp, CloudRain, ListOrdered, MousePointerClick, Trophy };
+    const Icon = icons[iconName] || Star;
+    return <Icon size={size} />;
+  }
+  
+  const getThemeIcon = (val: string) => {
+      if(val === 'ocean') return <Cloud size={24} className="text-blue-500"/>;
+      if(val === 'sunset') return <SunMedium size={24} className="text-orange-500"/>;
+      if(val === 'lavender') return <Flower size={24} className="text-purple-500"/>;
+      if(val === 'midnight') return <Moon size={24} className="text-slate-800"/>;
+      return <Sun size={24}/>;
+  }
+
+  return (
+    <div className={`min-h-screen font-sans transition-colors duration-500 ${THEMES[stats.currentTheme]}`}>
+      <div className="max-w-md mx-auto h-screen flex flex-col shadow-2xl relative overflow-hidden bg-brand-bg/90 backdrop-blur-md">
+        
+        {/* === HEADER === */}
+        {currentScreen === Screen.HOME || currentScreen === Screen.STORE || currentScreen === Screen.PROFILE || currentScreen === Screen.SETTINGS || currentScreen === Screen.RANKING || currentScreen === Screen.BETTING ? (
+             <div className="px-6 pt-6 pb-2 flex justify-between items-center z-10">
+                <div onClick={() => setCurrentScreen(Screen.PROFILE)} className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity">
+                    <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-md text-brand-primary border-2 border-white">
+                        {AVATARS[stats.currentAvatar] || <User />}
+                    </div>
+                    <div>
+                        <h1 className="font-bold text-lg leading-tight opacity-90">Olá, Mestre</h1>
+                        <div className="flex items-center gap-1 text-xs font-bold opacity-60">Nível {stats.level}</div>
+                    </div>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                    <div className="bg-white/90 px-4 py-2 rounded-full font-bold shadow-sm flex items-center gap-2 border border-gray-100/50">
+                        <Coins size={18} className="text-yellow-500 fill-yellow-500" /> 
+                        <span className="text-gray-800">{stats.coins}</span>
+                    </div>
+                    <button 
+                        onClick={() => setCurrentScreen(Screen.SETTINGS)}
+                        className="bg-white/90 p-2 rounded-full shadow-sm border border-gray-100/50 text-gray-500 hover:text-gray-800 transition-colors"
+                    >
+                        <SettingsIcon size={20} />
+                    </button>
+                </div>
+             </div>
+        ) : null}
+
+        {/* === CONTENT === */}
+        <div className="flex-grow overflow-y-auto relative no-scrollbar">
+            {currentScreen === Screen.HOME && (
+                <div className="pb-28 px-6 space-y-6">
+                    <div className="mt-2 relative">
+                        <TreeOfMind stats={stats} />
+                        
+                        {/* Streak Counter */}
+                        <div className="absolute top-0 right-0 bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 border border-orange-200 shadow-sm animate-pulse">
+                            <Flame size={14} className="fill-orange-500"/>
+                            {stats.streak} Dias Seguidos
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="font-bold text-xl opacity-90 flex items-center gap-2">
+                                <Grid size={20} />
+                                Atividades
+                            </h3>
+                            <span className="text-xs font-bold opacity-50 uppercase tracking-wide">Desafie sua mente</span>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-4">
+                            {GAMES.map(g => {
+                                const isLevelLocked = g.unlockLevel && stats.level < g.unlockLevel;
+                                const isCostLocked = g.unlockCost && !stats.unlockedGames.includes(g.id);
+                                const isAdLocked = g.unlockAd && !stats.unlockedGames.includes(g.id);
+                                const isLocked = isLevelLocked || isCostLocked || isAdLocked;
+
+                                return (
+                                <button 
+                                    key={g.id} 
+                                    onClick={() => tryStartGame(g)} 
+                                    className={`relative p-4 rounded-3xl shadow-soft border flex flex-col gap-3 transition-all bg-white border-white hover:scale-[1.02] hover:shadow-lg ${isLocked ? 'opacity-90' : ''}`}
+                                >
+                                    {/* LOCK OVERLAY */}
+                                    {isLocked && (
+                                        <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-10 rounded-3xl flex flex-col items-center justify-center">
+                                            {isLevelLocked && (
+                                                <div className="bg-gray-900 text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1">
+                                                    <Lock size={12}/> Nv. {g.unlockLevel}
+                                                </div>
+                                            )}
+                                            {isCostLocked && (
+                                                <div className="bg-yellow-500 text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-md">
+                                                    <Lock size={12}/> 10k <Coins size={10} fill="currentColor"/>
+                                                </div>
+                                            )}
+                                            {isAdLocked && (
+                                                <div className="bg-blue-500 text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-md">
+                                                    <Video size={12}/> Desbloquear
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    <div className="flex justify-between items-start">
+                                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${g.color}`}>
+                                            {renderIcon(g.icon, 24)}
+                                        </div>
+                                    </div>
+                                    <div className="text-left">
+                                        <p className="font-bold text-sm leading-tight text-gray-900">{g.title}</p>
+                                        <p className="text-[10px] uppercase font-bold opacity-50 mt-1">{g.category}</p>
+                                    </div>
+                                </button>
+                            )})}
+                            {/* More Games Placeholder */}
+                            <div className="relative p-4 rounded-3xl shadow-soft border border-dashed border-gray-300 flex flex-col gap-3 bg-gray-50 opacity-60">
+                                <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-gray-200">
+                                    <Gamepad size={24} className="text-gray-400" />
+                                </div>
+                                <div className="text-left">
+                                    <p className="font-bold text-sm leading-tight text-gray-500">Mais em Breve</p>
+                                    <p className="text-[10px] uppercase font-bold opacity-50 mt-1">Novidades</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+            
+            {/* ... Other screens (Profile, Store, Ranking, Betting, Settings) are identical ... */}
+            {currentScreen === Screen.PROFILE && (
+                <div className="px-6 pb-28 pt-4">
+                    <h2 className="text-2xl font-bold mb-6 opacity-90">Suas Conquistas</h2>
+                    <div className="space-y-4">
+                        {ACHIEVEMENTS.map(ach => {
+                            const isUnlocked = stats.unlockedAchievements.includes(ach.id);
+                            return (
+                                <div key={ach.id} className={`p-4 rounded-2xl flex items-center gap-4 border-2 ${isUnlocked ? 'bg-white border-yellow-400 shadow-sm' : 'bg-gray-100 border-transparent opacity-60'}`}>
+                                    <div className={`w-14 h-14 rounded-full flex items-center justify-center ${isUnlocked ? 'bg-yellow-100 text-yellow-600' : 'bg-gray-200 text-gray-400'}`}>
+                                        <Medal size={24} />
+                                    </div>
+                                    <div className="flex-grow">
+                                        <h4 className="font-bold text-gray-800">{ach.title}</h4>
+                                        <p className="text-xs text-gray-500">{ach.description}</p>
+                                        <p className="text-xs font-bold text-yellow-600 mt-1 flex items-center gap-1"><Coins size={10}/> Prêmio: {ach.reward}</p>
+                                    </div>
+                                    {isUnlocked && <CheckCircle size={20} className="ml-auto text-green-500" />}
+                                </div>
+                            )
+                        })}
+                    </div>
+                </div>
+            )}
+
+            {currentScreen === Screen.STORE && (
+                <div className="px-6 pb-28 pt-4">
+                    <h2 className="text-2xl font-bold mb-6 opacity-90">Loja</h2>
+                    <div className="mb-4">
+                         <button onClick={watchAdForCoins} className="w-full bg-gradient-to-r from-yellow-400 to-orange-500 text-white p-4 rounded-2xl shadow-lg flex items-center justify-between font-bold text-lg hover:scale-[1.02] transition-transform">
+                             <div className="flex items-center gap-3">
+                                 <Video size={24} />
+                                 <div className="text-left">
+                                     <span className="block leading-none">Assistir Vídeo</span>
+                                     <span className="text-xs opacity-90 font-normal">Ganhe +20 Moedas</span>
+                                 </div>
+                             </div>
+                             <div className="bg-white/20 p-2 rounded-full"><Coins size={20} className="fill-white"/></div>
+                         </button>
+                    </div>
+                    {!stats.hasRatedApp && (
+                        <div className="mb-8">
+                            <button onClick={handleRateApp} className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white p-4 rounded-2xl shadow-lg flex items-center justify-between font-bold text-lg hover:scale-[1.02] transition-transform">
+                                <div className="flex items-center gap-3">
+                                    <Star size={24} className="fill-yellow-300 text-yellow-300"/>
+                                    <div className="text-left">
+                                        <span className="block leading-none">Avalie o App</span>
+                                        <span className="text-xs opacity-90 font-normal">Ganhe +100 Moedas</span>
+                                    </div>
+                                </div>
+                                <div className="bg-white/20 p-2 rounded-full"><ThumbsUp size={20} className="fill-white"/></div>
+                            </button>
+                        </div>
+                    )}
+                    <div className="space-y-8">
+                        <section>
+                            <h3 className="font-bold mb-3 opacity-60 text-sm uppercase tracking-wider">Temas</h3>
+                            <button onClick={()=>equipItem('THEME', 'garden')} className={`w-full p-4 mb-4 rounded-2xl border-2 flex items-center gap-4 bg-white ${stats.currentTheme === 'garden' ? 'border-brand-primary' : 'border-gray-100'}`}>
+                                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center"><Sun className="text-green-600"/></div>
+                                <span className="font-bold text-gray-800">Padrão (Jardim)</span>
+                                {stats.currentTheme === 'garden' && <Check className="ml-auto text-brand-primary"/>}
+                            </button>
+                            <div className="grid grid-cols-2 gap-4">
+                                {['ocean', 'sunset', 'lavender', 'midnight'].map(themeId => {
+                                    if (!stats.unlockedThemes.includes(themeId as ThemeId)) return null; 
+                                    const isActive = stats.currentTheme === themeId;
+                                    return (
+                                        <button key={themeId} onClick={() => equipItem('THEME', themeId)} className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-3 shadow-sm transition-all bg-white ${isActive ? 'border-brand-primary' : 'border-transparent'}`}>
+                                            <div className="w-full h-16 rounded-xl bg-gray-50 flex items-center justify-center">
+                                                {getThemeIcon(themeId)}
+                                            </div>
+                                            <span className="font-bold text-sm text-gray-800 capitalize">{themeId}</span>
+                                            {isActive && <span className="text-xs font-bold text-brand-primary flex items-center gap-1"><Check size={12}/> Usando</span>}
+                                        </button>
+                                    )
+                                })}
+                            </div>
+                        </section>
+                        <section>
+                            <h3 className="font-bold mb-3 opacity-60 text-sm uppercase tracking-wider">Avatares</h3>
+                            <div className="grid grid-cols-3 gap-3">
+                                {STORE_ITEMS.filter(i => i.type === 'AVATAR').map(item => {
+                                    const unlocked = stats.unlockedAvatars.includes(item.value as AvatarId);
+                                    const lockedByLevel = item.minLevel && stats.level < item.minLevel;
+                                    const isActive = stats.currentAvatar === item.value;
+                                    return (
+                                        <button key={item.id} onClick={() => unlocked ? equipItem('AVATAR', item.value) : buyItem(item)} className={`p-2 rounded-2xl border-2 flex flex-col items-center gap-2 bg-white shadow-sm ${isActive ? 'border-brand-primary' : 'border-transparent'}`}>
+                                            <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center text-gray-600 relative">
+                                                {AVATARS[item.value as AvatarId]}
+                                                {lockedByLevel && <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center"><Lock size={16} className="text-white"/></div>}
+                                            </div>
+                                            {!unlocked && <span className="flex items-center text-[10px] gap-1 bg-yellow-100 px-2 py-1 rounded-lg text-yellow-700 font-bold">{lockedByLevel ? `Nv. ${item.minLevel}` : item.cost}</span>}
+                                        </button>
+                                    )
+                                })}
+                            </div>
+                        </section>
+                    </div>
+                </div>
+            )}
+
+            {currentScreen === Screen.RANKING && (
+                <Ranking stats={stats} onExit={handleGoHome} onRefresh={refreshRanking} />
+            )}
+
+            {currentScreen === Screen.BETTING && (
+                <Betting 
+                    stats={stats} 
+                    onUpdateCoins={(newAmount) => setStats(s => ({...s, coins: newAmount}))} 
+                    onExit={handleGoHome} 
+                    onRequestAd={requestAd}
+                    onClaimDaily={handleDailyClaim}
+                />
+            )}
+            
+            {currentScreen === Screen.SETTINGS && (
+                <Settings 
+                    stats={stats} 
+                    onToggleSound={toggleSound} 
+                    onToggleNotifications={() => setStats(s => ({...s, notificationsEnabled: !s.notificationsEnabled}))}
+                    onResetTutorials={() => setStats(s => ({...s, tutorialsSeen: []}))}
+                    onExit={handleGoHome}
+                />
+            )}
+
+            {currentScreen !== Screen.HOME && currentScreen !== Screen.STORE && currentScreen !== Screen.PROFILE && currentScreen !== Screen.SETTINGS && currentScreen !== Screen.RANKING && currentScreen !== Screen.BETTING && renderGame()}
+        </div>
+
+        {/* === NAV === */}
+        {(currentScreen === Screen.HOME || currentScreen === Screen.STORE || currentScreen === Screen.PROFILE || currentScreen === Screen.SETTINGS || currentScreen === Screen.RANKING || currentScreen === Screen.BETTING) && (
+            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-white rounded-full shadow-2xl p-2 flex gap-2 z-20 border border-gray-100">
+                <button onClick={() => setCurrentScreen(Screen.HOME)} className={`p-4 rounded-full transition-all ${currentScreen === Screen.HOME ? 'bg-gray-900 text-white' : 'text-gray-400 hover:bg-gray-50'}`}>
+                    <Home size={22} />
+                </button>
+                <button onClick={() => setCurrentScreen(Screen.STORE)} className={`p-4 rounded-full transition-all ${currentScreen === Screen.STORE ? 'bg-gray-900 text-white' : 'text-gray-400 hover:bg-gray-50'}`}>
+                    <Store size={22} />
+                </button>
+                <button onClick={() => setCurrentScreen(Screen.BETTING)} className={`p-4 rounded-full transition-all ${currentScreen === Screen.BETTING ? 'bg-gray-900 text-white' : 'text-gray-400 hover:bg-gray-50'}`}>
+                    <Clover size={22} />
+                </button>
+                <button onClick={() => setCurrentScreen(Screen.RANKING)} className={`p-4 rounded-full transition-all ${currentScreen === Screen.RANKING ? 'bg-gray-900 text-white' : 'text-gray-400 hover:bg-gray-50'}`}>
+                    <Users size={22} />
+                </button>
+                <button onClick={() => setCurrentScreen(Screen.PROFILE)} className={`p-4 rounded-full transition-all ${currentScreen === Screen.PROFILE ? 'bg-gray-900 text-white' : 'text-gray-400 hover:bg-gray-50'}`}>
+                    <Trophy size={22} />
+                </button>
+            </div>
+        )}
+
+        {/* === GAME UNLOCK MODAL === */}
+        {pendingUnlock && (
+             <div className="absolute inset-0 z-[70] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md animate-in fade-in">
+                 <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl relative">
+                     
+                     <div className="mb-6 flex justify-center">
+                         {pendingUnlock.type === 'LEVEL' && <div className="bg-gray-100 p-4 rounded-full"><Lock size={48} className="text-gray-400"/></div>}
+                         {pendingUnlock.type === 'COINS' && <div className="bg-yellow-100 p-4 rounded-full"><Coins size={48} className="text-yellow-500 fill-yellow-500"/></div>}
+                         {pendingUnlock.type === 'AD' && <div className="bg-blue-100 p-4 rounded-full"><Video size={48} className="text-blue-500"/></div>}
+                     </div>
+
+                     <h2 className="text-2xl font-black text-gray-800 mb-2">Jogo Bloqueado</h2>
+                     
+                     {pendingUnlock.type === 'LEVEL' && (
+                         <div className="space-y-4">
+                             <p className="text-gray-600">Este jogo requer mais experiência.</p>
+                             <div className="bg-gray-100 p-4 rounded-2xl font-bold text-gray-800">
+                                 Nível Necessário: <span className="text-brand-primary">{pendingUnlock.game.unlockLevel}</span>
+                             </div>
+                             <p className="text-xs text-gray-400">Continue jogando para subir de nível.</p>
+                             <button onClick={() => setPendingUnlock(null)} className="w-full py-3 bg-gray-200 text-gray-700 font-bold rounded-xl mt-4">Entendi</button>
+                         </div>
+                     )}
+
+                     {pendingUnlock.type === 'COINS' && (
+                         <div className="space-y-4">
+                             <p className="text-gray-600">Desbloqueie este jogo permanentemente.</p>
+                             <div className="bg-yellow-50 p-4 rounded-2xl border border-yellow-200">
+                                 <p className="text-xs text-gray-400 uppercase font-bold mb-1">Custo</p>
+                                 <div className="text-2xl font-black text-yellow-600 flex items-center justify-center gap-2">
+                                     {pendingUnlock.game.unlockCost} <Coins fill="currentColor"/>
+                                 </div>
+                             </div>
+                             <p className="text-xs text-gray-500">Seu saldo: {stats.coins}</p>
+                             <div className="flex gap-2 mt-4">
+                                 <button onClick={() => setPendingUnlock(null)} className="flex-1 py-3 bg-gray-100 text-gray-500 font-bold rounded-xl">Cancelar</button>
+                                 <button 
+                                    onClick={handleBuyGame} 
+                                    disabled={stats.coins < (pendingUnlock.game.unlockCost || 99999)}
+                                    className="flex-1 py-3 bg-green-500 text-white font-bold rounded-xl disabled:opacity-50 disabled:bg-gray-300"
+                                 >
+                                     Comprar
+                                 </button>
+                             </div>
+                         </div>
+                     )}
+
+                     {pendingUnlock.type === 'AD' && (
+                         <div className="space-y-4">
+                             <p className="text-gray-600">Assista a um vídeo curto para liberar este jogo agora!</p>
+                             <button 
+                                onClick={requestAdForGameUnlock}
+                                className="w-full py-4 bg-blue-600 text-white font-bold text-lg rounded-xl shadow-lg flex items-center justify-center gap-2 hover:bg-blue-700 transition-colors"
+                             >
+                                 <Play fill="currentColor"/> Assistir Vídeo
+                             </button>
+                             <button onClick={() => setPendingUnlock(null)} className="text-sm text-gray-400 font-bold mt-2">Cancelar</button>
+                         </div>
+                     )}
+                 </div>
+             </div>
+        )}
+
+        {/* NEW STREAK POPUP */}
+        {streakPopupValue !== null && (
+            <div className="absolute inset-0 z-[60] flex items-center justify-center p-6 bg-black/70 backdrop-blur-md animate-in fade-in duration-300">
+                <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl relative overflow-hidden animate-in zoom-in spin-in-1 duration-500">
+                    <div className="absolute inset-0 bg-orange-400/20 z-0 animate-pulse"></div>
+                    <Flame size={96} className="mx-auto text-orange-500 mb-4 animate-bounce relative z-10 fill-orange-500" />
+                    <h2 className="text-4xl font-black text-gray-800 mb-2 relative z-10">{streakPopupValue} DIAS!</h2>
+                    <p className="text-xl font-bold text-orange-600 mb-6 relative z-10">Sequência Incrível!</p>
+                    <p className="text-gray-500 mb-8 relative z-10 text-sm">Sua disciplina está fortalecendo sua mente a cada dia.</p>
+                    
+                    <button onClick={() => setStreakPopupValue(null)} className="w-full bg-orange-500 text-white py-4 rounded-xl font-bold text-xl hover:scale-[1.02] transition-transform relative z-10 shadow-xl">
+                        Continuar
+                    </button>
+                </div>
+            </div>
+        )}
+
+        {/* RATING CONFIRMATION MODAL */}
+        {isRatingCheck && (
+            <div className="absolute inset-0 z-[60] flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm animate-in fade-in">
+                <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl">
+                    <Star size={48} className="mx-auto text-yellow-400 fill-yellow-400 mb-4 animate-spin-slow" />
+                    <h3 className="text-xl font-bold text-gray-800 mb-4">Verificando Avaliação...</h3>
+                    <p className="text-gray-600 mb-8">Você avaliou o app na loja? Só clique abaixo se já tiver concluído.</p>
+                    <div className="flex flex-col gap-3">
+                        <button onClick={confirmRating} className="w-full bg-green-500 text-white py-3 rounded-xl font-bold shadow-md hover:bg-green-600">
+                            Sim, Já Avaliei!
+                        </button>
+                        <button onClick={() => setIsRatingCheck(false)} className="w-full bg-gray-100 text-gray-500 py-3 rounded-xl font-bold hover:bg-gray-200">
+                            Ainda não
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {/* ... (Existing modals for Level Up, Achievements, Victory, etc. retained) ... */}
+        {levelUpData && (
+            <div className="absolute inset-0 z-50 flex items-center justify-center p-6 bg-black/60 backdrop-blur-md animate-in fade-in duration-500">
+                <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-500">
+                    <div className="absolute inset-0 bg-green-400/20 z-0 animate-pulse"></div>
+                    <ArrowUpCircle size={80} className="mx-auto text-green-500 mb-4 animate-bounce relative z-10" />
+                    <h2 className="text-3xl font-black text-gray-800 mb-2 relative z-10">Nível {levelUpData.level}!</h2>
+                    <p className="text-gray-600 mb-6 relative z-10 text-lg">Seu Jardim da Mente cresceu.</p>
+                    
+                    <div className="bg-yellow-50 p-6 rounded-2xl border-2 border-yellow-300 relative z-10 shadow-lg transform rotate-1">
+                        <p className="text-sm font-bold text-yellow-700 uppercase tracking-wide">Recompensa</p>
+                        <p className="text-4xl font-black text-yellow-500 flex items-center justify-center gap-2 mt-2">
+                           +{levelUpData.reward} <Coins size={32} className="fill-yellow-500"/>
+                        </p>
+                    </div>
+                    
+                    <button onClick={() => setLevelUpData(null)} className="mt-8 w-full bg-green-600 text-white py-4 rounded-xl font-bold text-xl hover:scale-[1.02] transition-transform relative z-10 shadow-xl">
+                        Continuar
+                    </button>
+                </div>
+            </div>
+        )}
+
+        {unlockedAchievement && (
+            <div className="absolute inset-0 z-50 flex items-center justify-center p-6 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300">
+                <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300">
+                     <div className="absolute inset-0 bg-yellow-400/10 z-0"></div>
+                     <Sparkles size={64} className="mx-auto text-yellow-500 mb-4 animate-bounce relative z-10" />
+                     <h2 className="text-2xl font-black text-gray-800 mb-2 relative z-10">Conquista Desbloqueada!</h2>
+                     <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-200 mb-6 relative z-10">
+                         <h3 className="font-bold text-lg text-gray-800">{unlockedAchievement.title}</h3>
+                         <p className="text-gray-600 text-sm">{unlockedAchievement.description}</p>
+                     </div>
+                     <p className="text-xl font-bold text-green-600 flex items-center justify-center gap-2 relative z-10">
+                        <Coins className="fill-current"/> +{unlockedAchievement.reward}
+                     </p>
+                </div>
+            </div>
+        )}
+
+        {victoryData && (
+            <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in zoom-in duration-300">
+                <div className="bg-white rounded-3xl p-8 w-full max-w-sm text-center shadow-2xl">
+                    {victoryData.score > 0 ? (
+                        <>
+                            <Sparkles size={64} className="mx-auto text-yellow-400 mb-4 animate-bounce" />
+                            <h2 className="text-3xl font-black text-gray-800 mb-2">Excelente!</h2>
+                            <p className="text-gray-500 mb-8 text-lg">Você ganhou <span className="text-yellow-500 font-bold">+{victoryData.score} Moedas</span></p>
+                        </>
+                    ) : (
+                        <>
+                            <XCircle size={64} className="mx-auto text-red-400 mb-4" />
+                            <h2 className="text-3xl font-black text-gray-800 mb-2">Que Pena!</h2>
+                            <p className="text-gray-500 mb-8 text-lg">Você perdeu as moedas desta rodada.</p>
+                        </>
+                    )}
+                    
+                    <div className="space-y-3">
+                        <button onClick={handleRestart} className="w-full bg-gray-900 text-white py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform">
+                            <RotateCcw /> Jogar Novamente
+                        </button>
+                        <button onClick={handleGoHome} className="w-full bg-gray-100 text-gray-700 py-4 rounded-2xl font-bold text-lg hover:bg-gray-200 transition-colors">
+                            Voltar ao Jardim
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {activeTutorial && (
+            <div className="absolute inset-0 z-50 bg-white/95 flex flex-col justify-center p-10 text-center">
+                <div className="mb-6 mx-auto bg-brand-primary/10 p-6 rounded-full text-brand-primary"><Info size={48}/></div>
+                <h1 className="text-3xl font-black mb-4 text-gray-900">{activeTutorial.title}</h1>
+                <p className="text-xl text-gray-600 mb-12 leading-relaxed">{activeTutorial.text}</p>
+                <button onClick={finishTutorial} className="w-full bg-gray-900 text-white py-5 rounded-2xl font-bold text-xl flex items-center justify-center gap-2 shadow-lg hover:scale-[1.02] transition-transform">
+                    Entendi <Check />
+                </button>
+            </div>
+        )}
+
+        {showAdModal && (
+            <div className="absolute inset-0 z-[80] bg-gray-900 flex flex-col items-center justify-center text-white p-8 animate-in fade-in">
+                <div className="w-full h-56 bg-gray-800 rounded-3xl mb-8 flex items-center justify-center animate-pulse border border-gray-700">
+                    <Video size={48} className="opacity-50"/>
+                </div>
+                <h3 className="text-2xl font-bold mb-2">Anúncio do Patrocinador</h3>
+                <p className="opacity-60 mb-12 text-center">Obrigado por apoiar o SábiaMente</p>
+                <button onClick={handleAdClosed} className="bg-white text-black px-10 py-4 rounded-full font-bold text-lg hover:scale-105 transition-transform">
+                    Fechar X
+                </button>
+            </div>
+        )}
+      </div>
+    </div>
+  );
+}
