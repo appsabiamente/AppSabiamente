@@ -2,7 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { UserStats } from '../types';
 import { Clover, Coins, Dices, RotateCcw, Video, Calendar, Check, Lock, Ticket, Timer, Gift } from 'lucide-react';
-import { playSuccessSound, playFailureSound } from '../services/audioService';
+import { playSuccessSound, playFailureSound, playCelebrationSound } from '../services/audioService';
+import { triggerFireworks } from '../services/celebrationService';
 import DailyChallenge from './DailyChallenge';
 
 interface BettingProps {
@@ -107,6 +108,7 @@ const Betting: React.FC<BettingProps> = ({ stats, onUpdateStats, onRequestAd, on
 
                 if (didWin) {
                     playSuccessSound();
+                    triggerFireworks();
                     alert(`PARABÉNS! SEU CUPOM FOI SORTEADO!\n\nPrêmio Jackpot ${prizeName}: +${winAmount} Moedas!`);
                     onUpdateStats({
                         coins: stats.coins + winAmount,
@@ -184,7 +186,8 @@ const Betting: React.FC<BettingProps> = ({ stats, onUpdateStats, onRequestAd, on
             const segment = SEGMENTS[selectedSegmentIndex];
             
             if (segment.multiplier > 0) {
-                playSuccessSound();
+                playCelebrationSound();
+                triggerFireworks();
                 const winnings = betAmount * segment.multiplier;
                 onUpdateStats({ coins: currentCoins + winnings });
                 setLastWin(winnings);

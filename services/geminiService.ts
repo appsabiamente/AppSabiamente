@@ -2,7 +2,7 @@
 import { TriviaQuestion, SequenceTask, IntruderTask, ScrambleTask, ProverbTask, DailyChallengeData } from "../types";
 import { GoogleGenAI, Type } from "@google/genai";
 
-// Initialize the API client
+// Inicialização direta do cliente API para funcionamento client-side
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 const MODEL_NAME = "gemini-3-flash-preview";
 

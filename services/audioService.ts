@@ -147,13 +147,25 @@ export const playCelebrationSound = () => {
     playNote(1760, 'sine', t + 0.6, 0.5, 0.2); // A6
 };
 
-// 6. MUSICAL TONES (For Sound Game)
-// Smoother sine waves with nice release
+// 6. MAGICAL SOUND (Unlock Avatar)
+export const playMagicalSound = () => {
+    if (!audioCtx || isMuted) return;
+    const t = audioCtx.currentTime;
+    // Sparkling chime effect (high frequency sines)
+    playNote(1046.50, 'sine', t, 0.5, 0.2); // C6
+    playNote(1318.51, 'sine', t + 0.1, 0.5, 0.2); // E6
+    playNote(1567.98, 'sine', t + 0.2, 0.5, 0.2); // G6
+    playNote(2093.00, 'sine', t + 0.3, 0.8, 0.4); // C7
+    // Underlying "shimmer"
+    playNote(523.25, 'triangle', t, 1.0, 0.1, 0.5); // C5 long
+};
+
+// 7. MUSICAL TONES (For Sound Game)
 const FREQUENCIES = {
   0: 261.63, // C4 (Dó)
-  1: 329.63, // E4 (Mi) - Changed to Major Third for pleasant harmony
-  2: 392.00, // G4 (Sol) - Perfect Fifth
-  3: 523.25  // C5 (Dó Alto) - Octave
+  1: 329.63, // E4 (Mi)
+  2: 392.00, // G4 (Sol)
+  3: 523.25  // C5 (Dó Alto)
 };
 
 export const playTone = (index: number, duration: number = 0.5) => {
@@ -163,6 +175,5 @@ export const playTone = (index: number, duration: number = 0.5) => {
   const t = audioCtx.currentTime;
   const freq = FREQUENCIES[index as keyof typeof FREQUENCIES] || 440;
   
-  // Use 'sine' for pure tone, but with envelope
   playNote(freq, 'sine', t, duration, 0.8, 0.3);
 };

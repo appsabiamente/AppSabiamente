@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Screen, UserStats, Minigame, ThemeId, AvatarId, StoreItem, Achievement, LeaderboardEntry, Language } from './types';
 import { Video, Star, Brain, Music, Calculator, ClipboardList, Coins, Target, Zap, Activity, Wind, Eye, Square, LayoutGrid, Info, Home, Store, User, RotateCcw, Check, Sparkles, Infinity as InfinityIcon, Lock, Unlock, Grid, Link, Quote, AlertCircle, Type, Grid3X3, Palette, Search, Trophy, Medal, Crown, Ghost, Sun, Gamepad, CheckCircle, XCircle, Box, Copy, TrendingUp, CloudRain, ListOrdered, MousePointerClick, SunMedium, Moon, Cloud, Flower, Settings as SettingsIcon, Users, Clover, ArrowUpCircle, Flame, ThumbsUp, Play, CheckSquare, HeartHandshake, WifiOff, SignalHigh } from 'lucide-react';
 
-import { setMuted, playClickSound, playFanfare, playCelebrationSound } from './services/audioService';
+import { setMuted, playClickSound, playFanfare, playCelebrationSound, playMagicalSound } from './services/audioService';
 import { triggerFireworks, triggerConfettiCannon, triggerCentralBurst } from './services/celebrationService';
 import MemoryGame from './components/MemoryGame';
 import TriviaGame from './components/TriviaGame';
@@ -493,9 +493,6 @@ export default function App() {
           dailyChallengeLastCompleted: today,
           dailyChallengesWon: prev.dailyChallengesWon + 1
       }));
-      // Can assume Daily Challenge is accessed from Betting Screen (Menu), so likely safe to show immediate or queue
-      // Since it's a modal over Betting, immediate effect is fine for context, but let's queue if we want consistency
-      // Actually, Betting is a Menu Screen, so queue processor works there too!
       setEventQueue(prev => [...prev, { type: 'ACHIEVEMENT', data: { title: 'Desafio Vencido', description: 'Você dominou a palavra do dia!', reward: coinsWon, icon: 'Calendar' } }]); 
   };
 
@@ -625,6 +622,9 @@ export default function App() {
               setStatsSynced(s => ({ ...s, coins: s.coins - item.cost, unlockedThemes: [...s.unlockedThemes, item.value as ThemeId], currentTheme: item.value as ThemeId }));
           } else {
               setStatsSynced(s => ({ ...s, coins: s.coins - item.cost, unlockedAvatars: [...s.unlockedAvatars, item.value as AvatarId], currentAvatar: item.value as AvatarId }));
+              // Celebration for New Avatar
+              triggerConfettiCannon();
+              playMagicalSound();
           }
       } else { alert("Moedas insuficientes!"); }
   };
