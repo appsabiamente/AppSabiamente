@@ -59,7 +59,7 @@ export interface LeaderboardEntry {
 }
 
 export interface UserStats {
-  userName: string; // New field for user personalization
+  userName: string; // ADICIONADO: Nome personalizado do usuário
   coins: number;
   streak: number;
   totalGamesPlayed: number;

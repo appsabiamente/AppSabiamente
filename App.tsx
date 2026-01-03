@@ -39,7 +39,7 @@ const getNextSunday = () => {
 };
 
 const INITIAL_STATS: UserStats = {
-  userName: '',
+  userName: '', // Nome inicia vazio para ser preenchido
   coins: 0,
   streak: 0, 
   totalGamesPlayed: 0,
@@ -93,7 +93,7 @@ const ACHIEVEMENTS: Achievement[] = [
     { id: 'collector', title: 'Colecionador', description: 'Tenha 3 avatares.', icon: 'User', unlocked: false, reward: 250, condition: s => s.unlockedAvatars.length >= 3 },
     { id: 'millionaire', title: 'Tesouro', description: 'Acumule 2000 moedas.', icon: 'Coins', unlocked: false, reward: 400, condition: s => s.coins >= 2000 },
     { id: 'unstoppable', title: 'Imparável', description: 'Atinja Nível 30.', icon: 'Zap', unlocked: false, reward: 1000, condition: s => s.level >= 30 },
-    // Novas Conquistas
+    // Novas Conquistas baseadas em recordes
     { id: 'encyclopedia', title: 'Enciclopédia', description: 'Recorde > 50 na Sabedoria.', icon: 'Book', unlocked: false, reward: 100, condition: s => (s.highScores['triv'] || 0) >= 50 },
     { id: 'calculator', title: 'Calculadora', description: 'Recorde > 50 no Cálculo.', icon: 'Calculator', unlocked: false, reward: 100, condition: s => (s.highScores['math'] || 0) >= 50 },
     { id: 'eagle_eye', title: 'Olhos de Águia', description: 'Recorde > 50 no Intruso.', icon: 'Eye', unlocked: false, reward: 100, condition: s => (s.highScores['intr'] || 0) >= 50 },
@@ -843,7 +843,8 @@ export default function App() {
             {currentScreen === Screen.PROFILE && (
                 <div className="px-6 pb-28 pt-4">
                     <div className="flex flex-col items-center justify-center mb-8 animate-in zoom-in">
-                        <img src="/logo.png" alt="SábiaMente" className="h-32 mb-4 object-contain" onError={(e) => e.currentTarget.style.display = 'none'} />
+                        {/* Exibe o logo que o usuário adicionou na pasta public */}
+                        <img src="/logo.png" alt="SábiaMente" className="h-32 mb-4 object-contain drop-shadow-md" />
                         <h2 className="text-2xl font-bold opacity-90 text-gray-800">Seu Perfil</h2>
                     </div>
 
@@ -856,7 +857,7 @@ export default function App() {
                             value={stats.userName} 
                             onChange={handleNameChange} 
                             placeholder="Digite seu nome aqui"
-                            className="w-full text-xl font-bold text-gray-800 border-b-2 border-gray-200 focus:border-brand-primary outline-none py-2 placeholder:text-gray-300 bg-transparent"
+                            className="w-full text-xl font-bold text-gray-800 border-b-2 border-gray-200 focus:border-brand-primary outline-none py-2 placeholder:text-gray-300 bg-transparent transition-colors"
                         />
                     </div>
 
