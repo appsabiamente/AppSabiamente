@@ -165,8 +165,6 @@ export const generateDailyWordChallenge = async (): Promise<DailyChallengeData |
     } catch (e) { return null; }
 }
 
-// --- UPDATED INFINITE GAME LOGIC (STRICTER PORTUGUESE) ---
-
 export const validateWordChain = async (lastWord: string, userWord: string, category: string): Promise<{isValid: boolean, message: string, nextWord?: string}> => {
     if (!userWord || userWord.length < 2) return { isValid: false, message: "Muito curta." };
     

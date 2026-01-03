@@ -65,7 +65,7 @@ const INITIAL_STATS: UserStats = {
   nextRaffleDate: getNextSunday(),
   dailyChallengeLastCompleted: null,
   dailyChallengesWon: 0,
-  lastWateredDate: null // Added for Garden Feature
+  lastWateredDate: null 
 };
 
 const FAKE_NAMES = [
@@ -143,6 +143,13 @@ interface PendingUnlock {
     type: LockType;
 }
 
+// QUEUE SYSTEM
+type EventType = 'LEVEL_UP' | 'ACHIEVEMENT' | 'STREAK';
+interface GameEvent {
+    type: EventType;
+    data: any;
+}
+
 const FORCED_AD_INTERVAL = 5 * 60 * 1000;
 
 export default function App() {
@@ -163,9 +170,12 @@ export default function App() {
   const [pendingUnlock, setPendingUnlock] = useState<PendingUnlock | null>(null);
   const [pendingAdReward, setPendingAdReward] = useState<'NONE' | 'GAME_UNLOCK' | 'COINS' | 'GENERIC'>('NONE');
 
+  // EVENT QUEUE & MODAL STATES
+  const [eventQueue, setEventQueue] = useState<GameEvent[]>([]);
   const [unlockedAchievement, setUnlockedAchievement] = useState<Achievement | null>(null);
   const [levelUpData, setLevelUpData] = useState<{level: number, reward: number} | null>(null);
   const [streakPopupValue, setStreakPopupValue] = useState<number | null>(null);
+  
   const [isRatingCheck, setIsRatingCheck] = useState(false);
 
   useEffect(() => {
@@ -173,10 +183,7 @@ export default function App() {
     if (saved) {
         try {
             const parsed = JSON.parse(saved);
-            // Defesa contra dados corrompidos
-            if (!parsed.leaderboard || !Array.isArray(parsed.leaderboard)) {
-                parsed.leaderboard = []; 
-            }
+            if (!parsed.leaderboard || !Array.isArray(parsed.leaderboard)) parsed.leaderboard = []; 
             if (!parsed.unlockedAvatars) parsed.unlockedAvatars = ['base'];
             if (!parsed.currentAvatar) parsed.currentAvatar = 'base';
             if (!parsed.language) parsed.language = 'pt';
@@ -190,7 +197,7 @@ export default function App() {
             const cleanStats = {...INITIAL_STATS, ...parsed};
             setStats(cleanStats);
         } catch (e) {
-            console.error("Save data corrupted, resetting to defaults", e);
+            console.error("Save data corrupted", e);
             initLeaderboard(INITIAL_STATS.coins);
         }
     } else {
@@ -200,40 +207,68 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem('sabiamente_stats_v8', JSON.stringify(stats));
-    checkAchievements();
+    checkAchievements(); // Will queue if any
     setMuted(!stats.soundEnabled);
   }, [stats]);
 
-  // --- GLOBAL CLICK SOUND EFFECT ---
+  // --- QUEUE PROCESSOR ---
+  useEffect(() => {
+      // Only process queue if:
+      // 1. We are on HOME screen
+      // 2. Queue is not empty
+      // 3. No other modals are currently showing
+      const isModalActive = levelUpData || unlockedAchievement || streakPopupValue || victoryData || pendingUnlock || showAdModal || activeTutorial;
+      
+      if (currentScreen === Screen.HOME && eventQueue.length > 0 && !isModalActive) {
+          // Add a small delay to make it feel natural
+          const t = setTimeout(() => {
+              const nextEvent = eventQueue[0];
+              const remaining = eventQueue.slice(1);
+              setEventQueue(remaining);
+
+              switch(nextEvent.type) {
+                  case 'LEVEL_UP':
+                      setLevelUpData(nextEvent.data);
+                      triggerFireworks();
+                      playFanfare();
+                      break;
+                  case 'ACHIEVEMENT':
+                      setUnlockedAchievement(nextEvent.data);
+                      triggerConfettiCannon();
+                      playFanfare();
+                      break;
+                  case 'STREAK':
+                      setStreakPopupValue(nextEvent.data);
+                      triggerCentralBurst();
+                      playCelebrationSound();
+                      break;
+              }
+          }, 500); // 0.5s delay
+          return () => clearTimeout(t);
+      }
+  }, [currentScreen, eventQueue, levelUpData, unlockedAchievement, streakPopupValue, victoryData, pendingUnlock, showAdModal, activeTutorial]);
+
+  // --- GLOBAL CLICK SOUND ---
   useEffect(() => {
       const handleGlobalClick = (e: MouseEvent) => {
-          // Check if target is a button or inside a button/interactive element
           const target = e.target as HTMLElement;
           if (target.closest('button') || target.closest('a') || target.closest('.interactive')) {
               playClickSound();
           }
       };
-      
       window.addEventListener('click', handleGlobalClick);
       return () => window.removeEventListener('click', handleGlobalClick);
   }, []);
 
-  // --- CONNECTIVITY CHECK ---
+  // --- CONNECTIVITY ---
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
-
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-
-    const interval = setInterval(() => {
-        setIsOnline(navigator.onLine);
-    }, 5000);
-
     return () => {
         window.removeEventListener('online', handleOnline);
         window.removeEventListener('offline', handleOffline);
-        clearInterval(interval);
     };
   }, []);
 
@@ -246,19 +281,20 @@ export default function App() {
       const adTimer = setInterval(() => {
           const now = Date.now();
           if (now - lastAdTime.current > FORCED_AD_INTERVAL) {
-              if (isMenuScreen(currentScreen) && !showAdModal && !activeTutorial && !victoryData && !pendingUnlock && !levelUpData) {
+              const isModalActive = showAdModal || activeTutorial || victoryData || pendingUnlock || levelUpData;
+              if (isMenuScreen(currentScreen) && !isModalActive) {
                   triggerForcedAd();
               } else {
                   setPendingForcedAd(true);
               }
           }
       }, 10000); 
-
       return () => clearInterval(adTimer);
   }, [currentScreen, showAdModal, activeTutorial, victoryData, pendingUnlock, levelUpData]);
 
   useEffect(() => {
-      if (pendingForcedAd && isMenuScreen(currentScreen) && !showAdModal && !activeTutorial && !victoryData && !pendingUnlock && !levelUpData) {
+      const isModalActive = showAdModal || activeTutorial || victoryData || pendingUnlock || levelUpData;
+      if (pendingForcedAd && isMenuScreen(currentScreen) && !isModalActive) {
           triggerForcedAd();
       }
   }, [currentScreen, pendingForcedAd, showAdModal, activeTutorial, victoryData, pendingUnlock, levelUpData]);
@@ -269,7 +305,7 @@ export default function App() {
       setPendingForcedAd(false);
   };
 
-  // --- HELPER PARA SINCRONIZAR RANKING ---
+  // --- LOGIC HELPERS ---
   const syncWithLeaderboard = (s: UserStats): UserStats => {
       if (!s.leaderboard || !Array.isArray(s.leaderboard)) {
           return {
@@ -277,22 +313,14 @@ export default function App() {
               leaderboard: [{ id: 'user', name: 'Você', coins: s.coins, avatar: s.currentAvatar, isUser: true, streak: s.streak }]
           };
       }
-
       const userExists = s.leaderboard.some(e => e.isUser);
       let newLeaderboard = [...s.leaderboard];
-
       if (!userExists) {
           newLeaderboard.push({ id: 'user', name: 'Você', coins: s.coins, avatar: s.currentAvatar, isUser: true, streak: s.streak });
       }
-
       newLeaderboard = newLeaderboard.map(entry => {
           if (entry.isUser) {
-              return {
-                  ...entry,
-                  coins: s.coins,
-                  streak: s.streak,
-                  avatar: s.currentAvatar
-              };
+              return { ...entry, coins: s.coins, streak: s.streak, avatar: s.currentAvatar };
           }
           return entry;
       });
@@ -312,14 +340,7 @@ export default function App() {
       FAKE_NAMES.forEach((name, i) => {
           const variance = Math.floor(Math.random() * 5000) + 500; 
           const randomStreak = Math.floor(Math.random() * 78) + 12;
-          entries.push({ 
-              id: `fake_${i}`, 
-              name, 
-              coins: variance, 
-              avatar: 'base', 
-              isUser: false,
-              streak: randomStreak
-          });
+          entries.push({ id: `fake_${i}`, name, coins: variance, avatar: 'base', isUser: false, streak: randomStreak });
       });
       setStats(s => syncWithLeaderboard({...s, leaderboard: entries}));
   };
@@ -345,15 +366,12 @@ export default function App() {
               updatedList.push(ach.id);
               newUnlock = true;
               coinsToAdd += ach.reward;
-              setUnlockedAchievement(ach);
-              // CELEBRATION
-              triggerConfettiCannon();
-              playFanfare();
+              // QUEUE ACHIEVEMENT
+              setEventQueue(prev => [...prev, { type: 'ACHIEVEMENT', data: ach }]);
           }
       });
       if(newUnlock) {
           setStatsSynced(s => ({...s, coins: s.coins + coinsToAdd, unlockedAchievements: updatedList}));
-          setTimeout(() => setUnlockedAchievement(null), 5000); 
       }
   };
 
@@ -365,17 +383,14 @@ export default function App() {
           lastDailyClaim: today,
           dailyStreak: s.dailyStreak + 1,
       }));
-      // CELEBRATION
       triggerCentralBurst();
       playCelebrationSound();
       alert(`Recebido! +${rewardAmount} moedas.`);
   };
 
-  // --- GARDEN WATERING LOGIC ---
   const handleWaterGarden = () => {
       requestAd(() => {
           const today = new Date().toISOString().split('T')[0];
-          
           let newExp = stats.experience + 15;
           let newLevel = stats.level;
           let levelUpReward = 0;
@@ -384,12 +399,10 @@ export default function App() {
               newLevel += 1;
               newExp = newExp - 100;
               levelUpReward = newLevel * 50;
-              // LEVEL UP CELEBRATION
-              triggerFireworks();
-              playFanfare();
-              setLevelUpData({ level: newLevel, reward: levelUpReward });
+              // Add to queue since we are on Home
+              setEventQueue(prev => [...prev, { type: 'LEVEL_UP', data: { level: newLevel, reward: levelUpReward } }]);
           } else {
-              triggerCentralBurst(); // XP Gain celebration
+              triggerCentralBurst();
               playCelebrationSound();
           }
 
@@ -400,7 +413,6 @@ export default function App() {
               coins: s.coins + levelUpReward,
               lastWateredDate: today
           }));
-          
           alert("Jardim regado com sucesso! +15 XP");
       });
   };
@@ -430,10 +442,7 @@ export default function App() {
       
       if (pendingAdReward === 'GAME_UNLOCK' && pendingUnlock?.game) {
           const gameId = pendingUnlock.game.id;
-          setStatsSynced(s => ({
-              ...s,
-              unlockedGames: [...s.unlockedGames, gameId]
-          }));
+          setStatsSynced(s => ({ ...s, unlockedGames: [...s.unlockedGames, gameId] }));
           setCurrentScreen(pendingUnlock.game.screen);
           setPendingUnlock(null);
       } 
@@ -470,14 +479,10 @@ export default function App() {
   const getCalendarDaysDifference = (lastDateISO: string): number => {
       const now = new Date();
       const last = new Date(lastDateISO);
-      
       const currentCalendarDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const lastCalendarDate = new Date(last.getFullYear(), last.getMonth(), last.getDate());
-      
       const msPerDay = 1000 * 60 * 60 * 24;
-      const diffTime = currentCalendarDate.getTime() - lastCalendarDate.getTime();
-      
-      return Math.floor(diffTime / msPerDay);
+      return Math.floor((currentCalendarDate.getTime() - lastCalendarDate.getTime()) / msPerDay);
   };
 
   const handleDailyChallengeWin = (coinsWon: number) => {
@@ -488,15 +493,16 @@ export default function App() {
           dailyChallengeLastCompleted: today,
           dailyChallengesWon: prev.dailyChallengesWon + 1
       }));
-      // WIN CELEBRATION
-      triggerConfettiCannon();
-      playFanfare();
+      // Can assume Daily Challenge is accessed from Betting Screen (Menu), so likely safe to show immediate or queue
+      // Since it's a modal over Betting, immediate effect is fine for context, but let's queue if we want consistency
+      // Actually, Betting is a Menu Screen, so queue processor works there too!
+      setEventQueue(prev => [...prev, { type: 'ACHIEVEMENT', data: { title: 'Desafio Vencido', description: 'Você dominou a palavra do dia!', reward: coinsWon, icon: 'Calendar' } }]); 
   };
 
   const handleGameComplete = (score: number) => {
       const currentGame = GAMES.find(g => g.screen === currentScreen);
       const gameId = currentGame?.id || 'unknown';
-      setVictoryData({ score, gameId });
+      setVictoryData({ score, gameId }); // Immediate feedback screen
       
       const newHighScores = { ...stats.highScores };
       if (score > (newHighScores[gameId] || 0)) {
@@ -515,32 +521,22 @@ export default function App() {
               newExp = newExp - 100;
               levelUpReward = newLevel * 50; 
               newCoins += levelUpReward;
-              setLevelUpData({ level: newLevel, reward: levelUpReward });
-              // LEVEL UP CELEBRATION
-              triggerFireworks();
-              playFanfare();
+              // QUEUE LEVEL UP
+              setEventQueue(prev => [...prev, { type: 'LEVEL_UP', data: { level: newLevel, reward: levelUpReward } }]);
           }
       }
 
       let newStreak = stats.streak;
-      let streakUpdated = false;
 
       if (score > 0) {
           const daysDiff = getCalendarDaysDifference(stats.lastPlayedDate);
-          
           if (daysDiff === 1) {
               newStreak = stats.streak + 1;
-              streakUpdated = true;
-              setStreakPopupValue(newStreak);
-              // STREAK CELEBRATION
-              setTimeout(() => {
-                  triggerCentralBurst();
-                  playCelebrationSound();
-              }, 300);
+              // QUEUE STREAK
+              setEventQueue(prev => [...prev, { type: 'STREAK', data: newStreak }]);
           } else if (daysDiff > 1) {
               newStreak = 1;
-              streakUpdated = true;
-              setStreakPopupValue(1); 
+              setEventQueue(prev => [...prev, { type: 'STREAK', data: 1 }]);
           }
       }
 
@@ -577,22 +573,19 @@ export default function App() {
   const handleGoHome = () => {
       setVictoryData(null);
       setCurrentScreen(Screen.HOME);
+      // Triggering Home will naturally process the event queue via useEffect
   };
 
   const tryStartGame = (game: Minigame) => {
     const isSpecialUnlocked = stats.unlockedGames.includes(game.id);
-
     if (game.unlockLevel && stats.level < game.unlockLevel) {
-        setPendingUnlock({ game, type: 'LEVEL' });
-        return;
+        setPendingUnlock({ game, type: 'LEVEL' }); return;
     }
     if (game.unlockCost && !isSpecialUnlocked) {
-        setPendingUnlock({ game, type: 'COINS' });
-        return;
+        setPendingUnlock({ game, type: 'COINS' }); return;
     }
     if (game.unlockAd && !isSpecialUnlocked) {
-        setPendingUnlock({ game, type: 'AD' });
-        return;
+        setPendingUnlock({ game, type: 'AD' }); return;
     }
     if (!stats.tutorialsSeen.includes(game.id)) {
         setActiveTutorial({ title: game.title, text: game.tutorial, gameId: game.id });
@@ -604,16 +597,10 @@ export default function App() {
   const handleBuyGame = () => {
       if (!pendingUnlock || !pendingUnlock.game.unlockCost) return;
       const cost = pendingUnlock.game.unlockCost;
-      
       if (stats.coins >= cost) {
-          setStatsSynced(s => ({
-              ...s,
-              coins: s.coins - cost,
-              unlockedGames: [...s.unlockedGames, pendingUnlock.game.id]
-          }));
+          setStatsSynced(s => ({ ...s, coins: s.coins - cost, unlockedGames: [...s.unlockedGames, pendingUnlock.game.id] }));
           const game = pendingUnlock.game;
           setPendingUnlock(null);
-          
           if (!stats.tutorialsSeen.includes(game.id)) {
             setActiveTutorial({ title: game.title, text: game.tutorial, gameId: game.id });
           } else {
@@ -632,29 +619,14 @@ export default function App() {
   };
 
   const buyItem = (item: StoreItem) => {
-      if(item.minLevel && stats.level < item.minLevel) {
-          alert(`Precisa Nível ${item.minLevel}!`);
-          return;
-      }
+      if(item.minLevel && stats.level < item.minLevel) { alert(`Precisa Nível ${item.minLevel}!`); return; }
       if (stats.coins >= item.cost) {
           if (item.type === 'THEME') {
-              setStatsSynced(s => ({
-                  ...s, 
-                  coins: s.coins - item.cost, 
-                  unlockedThemes: [...s.unlockedThemes, item.value as ThemeId], 
-                  currentTheme: item.value as ThemeId 
-              }));
+              setStatsSynced(s => ({ ...s, coins: s.coins - item.cost, unlockedThemes: [...s.unlockedThemes, item.value as ThemeId], currentTheme: item.value as ThemeId }));
           } else {
-              setStatsSynced(s => ({
-                  ...s, 
-                  coins: s.coins - item.cost, 
-                  unlockedAvatars: [...s.unlockedAvatars, item.value as AvatarId], 
-                  currentAvatar: item.value as AvatarId
-              }));
+              setStatsSynced(s => ({ ...s, coins: s.coins - item.cost, unlockedAvatars: [...s.unlockedAvatars, item.value as AvatarId], currentAvatar: item.value as AvatarId }));
           }
-      } else {
-          alert("Moedas insuficientes!");
-      }
+      } else { alert("Moedas insuficientes!"); }
   };
 
   const equipItem = (type: 'THEME'|'AVATAR', val: string) => {
@@ -662,9 +634,7 @@ export default function App() {
       else setStatsSynced(s => ({...s, currentAvatar: val as AvatarId}));
   };
 
-  const toggleSound = () => {
-      setStats(prev => ({ ...prev, soundEnabled: !prev.soundEnabled }));
-  };
+  const toggleSound = () => { setStats(prev => ({ ...prev, soundEnabled: !prev.soundEnabled })); };
 
   const watchAdForCoins = () => {
       requestAd(() => {
@@ -720,7 +690,6 @@ export default function App() {
     <div className={`min-h-screen font-sans transition-colors duration-500 ${THEMES[stats.currentTheme]}`}>
       <div className="max-w-md mx-auto h-[100dvh] flex flex-col shadow-2xl relative overflow-hidden bg-brand-bg/90 backdrop-blur-md">
         
-        {/* === OFFLINE WARNING MODAL === */}
         {!isOnline && (
             <div className="absolute inset-0 z-[99] bg-black/80 flex items-center justify-center p-6 backdrop-blur-sm animate-in fade-in">
                 <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl">
@@ -734,7 +703,6 @@ export default function App() {
             </div>
         )}
 
-        {/* === HEADER === */}
         {isMenuScreen(currentScreen) ? (
              <div className="px-6 pt-6 pb-2 flex justify-between items-center z-10">
                 <div onClick={() => setCurrentScreen(Screen.PROFILE)} className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity">
@@ -762,14 +730,11 @@ export default function App() {
              </div>
         ) : null}
 
-        {/* === CONTENT === */}
         <div className="flex-grow overflow-y-auto relative no-scrollbar pb-24">
             {currentScreen === Screen.HOME && (
                 <div className="px-6 space-y-6">
                     <div className="mt-2 relative">
                         <TreeOfMind stats={stats} onWater={handleWaterGarden} canWater={canWaterToday()} />
-                        
-                        {/* Streak Counter */}
                         <div className="absolute top-0 right-0 bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 border border-orange-200 shadow-sm animate-pulse">
                             <Flame size={14} className="fill-orange-500"/>
                             {stats.streak} Dias Seguidos
@@ -791,8 +756,6 @@ export default function App() {
                                 const isCostLocked = g.unlockCost && !stats.unlockedGames.includes(g.id);
                                 const isAdLocked = g.unlockAd && !stats.unlockedGames.includes(g.id);
                                 const isLocked = isLevelLocked || isCostLocked || isAdLocked;
-                                
-                                // Get High Score
                                 const score = stats.highScores[g.id] || 0;
 
                                 return (
@@ -801,14 +764,11 @@ export default function App() {
                                     onClick={() => tryStartGame(g)} 
                                     className={`relative p-4 rounded-3xl shadow-soft border flex flex-col gap-3 transition-all bg-white border-white hover:scale-[1.02] hover:shadow-lg ${isLocked ? 'opacity-90' : ''}`}
                                 >
-                                    {/* High Score Badge */}
                                     {score > 0 && !isLocked && (
                                         <div className="absolute top-2 right-2 bg-yellow-50 text-yellow-700 border border-yellow-200 text-[10px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-0.5 shadow-sm z-10">
                                             <Trophy size={8} className="fill-yellow-500 text-yellow-500" /> {score}
                                         </div>
                                     )}
-
-                                    {/* LOCK OVERLAY */}
                                     {isLocked && (
                                         <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-20 rounded-3xl flex flex-col items-center justify-center">
                                             {isLevelLocked && (
@@ -828,7 +788,6 @@ export default function App() {
                                             )}
                                         </div>
                                     )}
-
                                     <div className="flex justify-between items-start">
                                         <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${g.color}`}>
                                             {renderIcon(g.icon, 24)}
@@ -840,7 +799,6 @@ export default function App() {
                                     </div>
                                 </button>
                             )})}
-                            {/* More Games Placeholder */}
                             <div className="relative p-4 rounded-3xl shadow-soft border border-dashed border-gray-300 flex flex-col gap-3 bg-gray-50 opacity-60">
                                 <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-gray-200">
                                     <Gamepad size={24} className="text-gray-400" />
@@ -855,7 +813,6 @@ export default function App() {
                 </div>
             )}
             
-            {/* ... (Rest of existing Screen rendering logic remains unchanged) ... */}
             {currentScreen === Screen.PROFILE && (
                 <div className="px-6 pb-28 pt-4">
                     <h2 className="text-2xl font-bold mb-6 opacity-90">Suas Conquistas</h2>
@@ -913,7 +870,6 @@ export default function App() {
                         <section>
                             <h3 className="font-bold mb-3 opacity-60 text-sm uppercase tracking-wider">Avatares</h3>
                             <div className="grid grid-cols-3 gap-3">
-                                {/* Base Normal Avatar Button */}
                                 <button 
                                     onClick={() => equipItem('AVATAR', 'base')} 
                                     className={`p-2 rounded-2xl border-2 flex flex-col items-center gap-2 bg-white shadow-sm transition-all ${stats.currentAvatar === 'base' ? 'border-brand-primary ring-2 ring-brand-primary/20' : 'border-transparent'}`}
@@ -928,7 +884,6 @@ export default function App() {
                                         </span>
                                     </div>
                                 </button>
-
                                 {STORE_ITEMS.filter(i => i.type === 'AVATAR').map(item => {
                                     const unlocked = stats.unlockedAvatars.includes(item.value as AvatarId);
                                     const lockedByLevel = item.minLevel && stats.level < item.minLevel;
@@ -956,7 +911,6 @@ export default function App() {
                                 })}
                             </div>
                         </section>
-
                         <section>
                             <h3 className="font-bold mb-3 opacity-60 text-sm uppercase tracking-wider">Temas</h3>
                             <button onClick={()=>equipItem('THEME', 'garden')} className={`w-full p-4 mb-4 rounded-2xl border-2 flex items-center gap-4 bg-white ${stats.currentTheme === 'garden' ? 'border-brand-primary' : 'border-gray-100'}`}>
@@ -1019,45 +973,26 @@ export default function App() {
                 className="absolute bottom-0 w-full bg-white/95 backdrop-blur-md border-t border-gray-100 flex justify-around items-center p-3 z-40 shadow-[0_-5px_20px_rgba(0,0,0,0.05)]"
                 style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}
             >
-                <button 
-                    onClick={() => setCurrentScreen(Screen.HOME)} 
-                    className={`flex flex-col items-center gap-1 transition-colors ${currentScreen === Screen.HOME ? 'text-brand-primary scale-105' : 'text-gray-400 hover:text-gray-600'}`}
-                >
+                <button onClick={() => setCurrentScreen(Screen.HOME)} className={`flex flex-col items-center gap-1 transition-colors ${currentScreen === Screen.HOME ? 'text-brand-primary scale-105' : 'text-gray-400 hover:text-gray-600'}`}>
                     <Home size={24} fill={currentScreen === Screen.HOME ? "currentColor" : "none"} className={currentScreen === Screen.HOME ? 'fill-current' : ''} />
                     <span className="text-[10px] font-bold">Início</span>
                 </button>
-                
-                <button 
-                    onClick={() => setCurrentScreen(Screen.STORE)} 
-                    className={`flex flex-col items-center gap-1 transition-colors ${currentScreen === Screen.STORE ? 'text-blue-600 scale-105' : 'text-gray-400 hover:text-gray-600'}`}
-                >
+                <button onClick={() => setCurrentScreen(Screen.STORE)} className={`flex flex-col items-center gap-1 transition-colors ${currentScreen === Screen.STORE ? 'text-blue-600 scale-105' : 'text-gray-400 hover:text-gray-600'}`}>
                     <Store size={24} fill={currentScreen === Screen.STORE ? "currentColor" : "none"} />
                     <span className="text-[10px] font-bold">Loja</span>
                 </button>
-                
-                <button 
-                    onClick={() => setCurrentScreen(Screen.BETTING)} 
-                    className={`flex flex-col items-center gap-1 transition-colors ${currentScreen === Screen.BETTING ? 'text-purple-600 scale-105' : 'text-gray-400 hover:text-gray-600'}`}
-                >
+                <button onClick={() => setCurrentScreen(Screen.BETTING)} className={`flex flex-col items-center gap-1 transition-colors ${currentScreen === Screen.BETTING ? 'text-purple-600 scale-105' : 'text-gray-400 hover:text-gray-600'}`}>
                     <div className="relative">
                         <Clover size={24} fill={currentScreen === Screen.BETTING ? "currentColor" : "none"}/>
                         {stats.dailyStreak > 0 && currentScreen !== Screen.BETTING && <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>}
                     </div>
                     <span className="text-[10px] font-bold">Sorte</span>
                 </button>
-                
-                <button 
-                    onClick={() => setCurrentScreen(Screen.RANKING)} 
-                    className={`flex flex-col items-center gap-1 transition-colors ${currentScreen === Screen.RANKING ? 'text-yellow-600 scale-105' : 'text-gray-400 hover:text-gray-600'}`}
-                >
+                <button onClick={() => setCurrentScreen(Screen.RANKING)} className={`flex flex-col items-center gap-1 transition-colors ${currentScreen === Screen.RANKING ? 'text-yellow-600 scale-105' : 'text-gray-400 hover:text-gray-600'}`}>
                     <Trophy size={24} fill={currentScreen === Screen.RANKING ? "currentColor" : "none"}/>
                     <span className="text-[10px] font-bold">Rank</span>
                 </button>
-                
-                <button 
-                    onClick={() => setCurrentScreen(Screen.PROFILE)} 
-                    className={`flex flex-col items-center gap-1 transition-colors ${currentScreen === Screen.PROFILE ? 'text-orange-600 scale-105' : 'text-gray-400 hover:text-gray-600'}`}
-                >
+                <button onClick={() => setCurrentScreen(Screen.PROFILE)} className={`flex flex-col items-center gap-1 transition-colors ${currentScreen === Screen.PROFILE ? 'text-orange-600 scale-105' : 'text-gray-400 hover:text-gray-600'}`}>
                     <User size={24} fill={currentScreen === Screen.PROFILE ? "currentColor" : "none"}/>
                     <span className="text-[10px] font-bold">Perfil</span>
                 </button>
@@ -1068,58 +1003,38 @@ export default function App() {
         {pendingUnlock && (
              <div className="absolute inset-0 z-[70] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md animate-in fade-in">
                  <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl relative">
-                     
                      <div className="mb-6 flex justify-center">
                          {pendingUnlock.type === 'LEVEL' && <div className="bg-gray-100 p-4 rounded-full"><Lock size={48} className="text-gray-400"/></div>}
                          {pendingUnlock.type === 'COINS' && <div className="bg-yellow-100 p-4 rounded-full"><Coins size={48} className="text-yellow-500 fill-yellow-500"/></div>}
                          {pendingUnlock.type === 'AD' && <div className="bg-blue-100 p-4 rounded-full"><Video size={48} className="text-blue-500"/></div>}
                      </div>
-
                      <h2 className="text-2xl font-black text-gray-800 mb-2">Jogo Bloqueado</h2>
-                     
                      {pendingUnlock.type === 'LEVEL' && (
                          <div className="space-y-4">
                              <p className="text-gray-600">Este jogo requer mais experiência.</p>
-                             <div className="bg-gray-100 p-4 rounded-2xl font-bold text-gray-800">
-                                 Nível Necessário: <span className="text-brand-primary">{pendingUnlock.game.unlockLevel}</span>
-                             </div>
+                             <div className="bg-gray-100 p-4 rounded-2xl font-bold text-gray-800">Nível Necessário: <span className="text-brand-primary">{pendingUnlock.game.unlockLevel}</span></div>
                              <p className="text-xs text-gray-400">Continue jogando para subir de nível.</p>
                              <button onClick={() => setPendingUnlock(null)} className="w-full py-3 bg-gray-200 text-gray-700 font-bold rounded-xl mt-4">Entendi</button>
                          </div>
                      )}
-
                      {pendingUnlock.type === 'COINS' && (
                          <div className="space-y-4">
                              <p className="text-gray-600">Desbloqueie este jogo permanentemente.</p>
                              <div className="bg-yellow-50 p-4 rounded-2xl border border-yellow-200">
                                  <p className="text-xs text-gray-400 uppercase font-bold mb-1">Custo</p>
-                                 <div className="text-2xl font-black text-yellow-600 flex items-center justify-center gap-2">
-                                     {pendingUnlock.game.unlockCost} <Coins fill="currentColor"/>
-                                 </div>
+                                 <div className="text-2xl font-black text-yellow-600 flex items-center justify-center gap-2">{pendingUnlock.game.unlockCost} <Coins fill="currentColor"/></div>
                              </div>
                              <p className="text-xs text-gray-500">Seu saldo: {stats.coins}</p>
                              <div className="flex gap-2 mt-4">
                                  <button onClick={() => setPendingUnlock(null)} className="flex-1 py-3 bg-gray-100 text-gray-500 font-bold rounded-xl">Cancelar</button>
-                                 <button 
-                                    onClick={handleBuyGame} 
-                                    disabled={stats.coins < (pendingUnlock.game.unlockCost || 99999)}
-                                    className="flex-1 py-3 bg-green-500 text-white font-bold rounded-xl disabled:opacity-50 disabled:bg-gray-300"
-                                 >
-                                     Comprar
-                                 </button>
+                                 <button onClick={handleBuyGame} disabled={stats.coins < (pendingUnlock.game.unlockCost || 99999)} className="flex-1 py-3 bg-green-500 text-white font-bold rounded-xl disabled:opacity-50 disabled:bg-gray-300">Comprar</button>
                              </div>
                          </div>
                      )}
-
                      {pendingUnlock.type === 'AD' && (
                          <div className="space-y-4">
                              <p className="text-gray-600">Assista a um vídeo curto para liberar este jogo agora!</p>
-                             <button 
-                                onClick={requestAdForGameUnlock}
-                                className="w-full py-4 bg-blue-600 text-white font-bold text-lg rounded-xl shadow-lg flex items-center justify-center gap-2 hover:bg-blue-700 transition-colors"
-                             >
-                                 <Play fill="currentColor"/> Assistir Vídeo
-                             </button>
+                             <button onClick={requestAdForGameUnlock} className="w-full py-4 bg-blue-600 text-white font-bold text-lg rounded-xl shadow-lg flex items-center justify-center gap-2 hover:bg-blue-700 transition-colors"><Play fill="currentColor"/> Assistir Vídeo</button>
                              <button onClick={() => setPendingUnlock(null)} className="text-sm text-gray-400 font-bold mt-2">Cancelar</button>
                          </div>
                      )}
@@ -1136,15 +1051,11 @@ export default function App() {
                     <h2 className="text-4xl font-black text-gray-800 mb-2 relative z-10">{streakPopupValue} DIAS!</h2>
                     <p className="text-xl font-bold text-orange-600 mb-6 relative z-10">Sequência Incrível!</p>
                     <p className="text-gray-500 mb-8 relative z-10 text-sm">Sua disciplina está fortalecendo sua mente a cada dia.</p>
-                    
-                    <button onClick={() => setStreakPopupValue(null)} className="w-full bg-orange-500 text-white py-4 rounded-xl font-bold text-xl hover:scale-[1.02] transition-transform relative z-10 shadow-xl">
-                        Continuar
-                    </button>
+                    <button onClick={() => setStreakPopupValue(null)} className="w-full bg-orange-500 text-white py-4 rounded-xl font-bold text-xl hover:scale-[1.02] transition-transform relative z-10 shadow-xl">Continuar</button>
                 </div>
             </div>
         )}
 
-        {/* RATING CONFIRMATION MODAL */}
         {isRatingCheck && (
             <div className="absolute inset-0 z-[60] flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm animate-in fade-in">
                 <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl">
@@ -1152,18 +1063,13 @@ export default function App() {
                     <h3 className="text-xl font-bold text-gray-800 mb-4">Verificando Avaliação...</h3>
                     <p className="text-gray-600 mb-8">Você avaliou o app na loja? Só clique abaixo se já tiver concluído.</p>
                     <div className="flex flex-col gap-3">
-                        <button onClick={confirmRating} className="w-full bg-green-500 text-white py-3 rounded-xl font-bold shadow-md hover:bg-green-600">
-                            Sim, Já Avaliei!
-                        </button>
-                        <button onClick={() => setIsRatingCheck(false)} className="w-full bg-gray-100 text-gray-500 py-3 rounded-xl font-bold hover:bg-gray-200">
-                            Ainda não
-                        </button>
+                        <button onClick={confirmRating} className="w-full bg-green-500 text-white py-3 rounded-xl font-bold shadow-md hover:bg-green-600">Sim, Já Avaliei!</button>
+                        <button onClick={() => setIsRatingCheck(false)} className="w-full bg-gray-100 text-gray-500 py-3 rounded-xl font-bold hover:bg-gray-200">Ainda não</button>
                     </div>
                 </div>
             </div>
         )}
 
-        {/* ... (Existing modals for Level Up, Achievements, Victory, etc. retained) ... */}
         {levelUpData && (
             <div className="absolute inset-0 z-50 flex items-center justify-center p-6 bg-black/60 backdrop-blur-md animate-in fade-in duration-500">
                 <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-500">
@@ -1171,17 +1077,11 @@ export default function App() {
                     <ArrowUpCircle size={80} className="mx-auto text-green-500 mb-4 animate-bounce relative z-10" />
                     <h2 className="text-3xl font-black text-gray-800 mb-2 relative z-10">Nível {levelUpData.level}!</h2>
                     <p className="text-gray-600 mb-6 relative z-10 text-lg">Seu Jardim da Mente cresceu.</p>
-                    
                     <div className="bg-yellow-50 p-6 rounded-2xl border-2 border-yellow-300 relative z-10 shadow-lg transform rotate-1">
                         <p className="text-sm font-bold text-yellow-700 uppercase tracking-wide">Recompensa</p>
-                        <p className="text-4xl font-black text-yellow-500 flex items-center justify-center gap-2 mt-2">
-                           +{levelUpData.reward} <Coins size={32} className="fill-yellow-500"/>
-                        </p>
+                        <p className="text-4xl font-black text-yellow-500 flex items-center justify-center gap-2 mt-2">+{levelUpData.reward} <Coins size={32} className="fill-yellow-500"/></p>
                     </div>
-                    
-                    <button onClick={() => setLevelUpData(null)} className="mt-8 w-full bg-green-600 text-white py-4 rounded-xl font-bold text-xl hover:scale-[1.02] transition-transform relative z-10 shadow-xl">
-                        Continuar
-                    </button>
+                    <button onClick={() => setLevelUpData(null)} className="mt-8 w-full bg-green-600 text-white py-4 rounded-xl font-bold text-xl hover:scale-[1.02] transition-transform relative z-10 shadow-xl">Continuar</button>
                 </div>
             </div>
         )}
@@ -1196,9 +1096,8 @@ export default function App() {
                          <h3 className="font-bold text-lg text-gray-800">{unlockedAchievement.title}</h3>
                          <p className="text-gray-600 text-sm">{unlockedAchievement.description}</p>
                      </div>
-                     <p className="text-xl font-bold text-green-600 flex items-center justify-center gap-2 relative z-10">
-                        <Coins className="fill-current"/> +{unlockedAchievement.reward}
-                     </p>
+                     <p className="text-xl font-bold text-green-600 flex items-center justify-center gap-2 relative z-10"><Coins className="fill-current"/> +{unlockedAchievement.reward}</p>
+                     <button onClick={() => setUnlockedAchievement(null)} className="mt-4 w-full bg-gray-900 text-white py-3 rounded-xl font-bold">Incrível</button>
                 </div>
             </div>
         )}
@@ -1219,14 +1118,9 @@ export default function App() {
                             <p className="text-gray-500 mb-8 text-lg">Você perdeu as moedas desta rodada.</p>
                         </>
                     )}
-                    
                     <div className="space-y-3">
-                        <button onClick={handleRestart} className="w-full bg-gray-900 text-white py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform">
-                            <RotateCcw /> Jogar Novamente
-                        </button>
-                        <button onClick={handleGoHome} className="w-full bg-gray-100 text-gray-700 py-4 rounded-2xl font-bold text-lg hover:bg-gray-200 transition-colors">
-                            Voltar ao Jardim
-                        </button>
+                        <button onClick={handleRestart} className="w-full bg-gray-900 text-white py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform"><RotateCcw /> Jogar Novamente</button>
+                        <button onClick={handleGoHome} className="w-full bg-gray-100 text-gray-700 py-4 rounded-2xl font-bold text-lg hover:bg-gray-200 transition-colors">Voltar ao Jardim</button>
                     </div>
                 </div>
             </div>
@@ -1237,28 +1131,16 @@ export default function App() {
                 <div className="mb-6 mx-auto bg-brand-primary/10 p-6 rounded-full text-brand-primary"><Info size={48}/></div>
                 <h1 className="text-3xl font-black mb-4 text-gray-900">{activeTutorial.title}</h1>
                 <p className="text-xl text-gray-600 mb-12 leading-relaxed">{activeTutorial.text}</p>
-                <button onClick={finishTutorial} className="w-full bg-gray-900 text-white py-5 rounded-2xl font-bold text-xl flex items-center justify-center gap-2 shadow-lg hover:scale-[1.02] transition-transform">
-                    Entendi <Check />
-                </button>
+                <button onClick={finishTutorial} className="w-full bg-gray-900 text-white py-5 rounded-2xl font-bold text-xl flex items-center justify-center gap-2 shadow-lg hover:scale-[1.02] transition-transform">Entendi <Check /></button>
             </div>
         )}
 
         {showAdModal && (
             <div className="absolute inset-0 z-[200] bg-gray-900 flex flex-col items-center justify-center text-white p-8 animate-in fade-in">
-                <div className="w-full h-56 bg-gray-800 rounded-3xl mb-8 flex items-center justify-center animate-pulse border border-gray-700">
-                    <Video size={48} className="opacity-50"/>
-                </div>
-                <h3 className="text-2xl font-bold mb-2">
-                    {isForcedAd ? "Apoio ao SábiaMente" : "Anúncio do Patrocinador"}
-                </h3>
-                <p className="opacity-60 mb-12 text-center max-w-xs leading-tight">
-                    {isForcedAd 
-                        ? "Este anúncio ajuda a manter o aplicativo gratuito para todos." 
-                        : "Obrigado por apoiar o SábiaMente"}
-                </p>
-                <button onClick={handleAdClosed} className="bg-white text-black px-10 py-4 rounded-full font-bold text-lg hover:scale-105 transition-transform">
-                    Fechar X
-                </button>
+                <div className="w-full h-56 bg-gray-800 rounded-3xl mb-8 flex items-center justify-center animate-pulse border border-gray-700"><Video size={48} className="opacity-50"/></div>
+                <h3 className="text-2xl font-bold mb-2">{isForcedAd ? "Apoio ao SábiaMente" : "Anúncio do Patrocinador"}</h3>
+                <p className="opacity-60 mb-12 text-center max-w-xs leading-tight">{isForcedAd ? "Este anúncio ajuda a manter o aplicativo gratuito para todos." : "Obrigado por apoiar o SábiaMente"}</p>
+                <button onClick={handleAdClosed} className="bg-white text-black px-10 py-4 rounded-full font-bold text-lg hover:scale-105 transition-transform">Fechar X</button>
             </div>
         )}
       </div>
