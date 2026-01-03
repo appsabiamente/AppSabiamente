@@ -169,17 +169,38 @@ export default function App() {
   useEffect(() => {
     const saved = localStorage.getItem('sabiamente_stats_v8');
     if (saved) {
-        const parsed = JSON.parse(saved);
-        if (!parsed.leaderboard) parsed.leaderboard = [];
-        if (!parsed.unlockedAvatars) parsed.unlockedAvatars = ['base'];
-        if (!parsed.currentAvatar) parsed.currentAvatar = 'base';
-        if (!parsed.language) parsed.language = 'pt';
-        if (parsed.weeklyTickets === undefined) parsed.weeklyTickets = 0;
-        if (parsed.raffleWins === undefined) parsed.raffleWins = 0;
-        if (!parsed.nextRaffleDate) parsed.nextRaffleDate = getNextSunday();
-        if (!parsed.dailyChallengesWon) parsed.dailyChallengesWon = 0;
-        if (!parsed.dailyChallengeLastCompleted) parsed.dailyChallengeLastCompleted = null;
-        setStats(prev => ({...prev, ...parsed}));
+        try {
+            const parsed = JSON.parse(saved);
+            // Defesa contra dados corrompidos
+            if (!parsed.leaderboard || !Array.isArray(parsed.leaderboard)) {
+                parsed.leaderboard = []; 
+            }
+            if (!parsed.unlockedAvatars) parsed.unlockedAvatars = ['base'];
+            if (!parsed.currentAvatar) parsed.currentAvatar = 'base';
+            if (!parsed.language) parsed.language = 'pt';
+            if (parsed.weeklyTickets === undefined) parsed.weeklyTickets = 0;
+            if (parsed.raffleWins === undefined) parsed.raffleWins = 0;
+            if (!parsed.nextRaffleDate) parsed.nextRaffleDate = getNextSunday();
+            if (!parsed.dailyChallengesWon) parsed.dailyChallengesWon = 0;
+            if (!parsed.dailyChallengeLastCompleted) parsed.dailyChallengeLastCompleted = null;
+            
+            // Re-sync user data inside leaderboard immediately on load
+            const cleanStats = {...INITIAL_STATS, ...parsed}; // Start with initial to fill any other gaps
+            
+            // Ensure leaderboard is sync'd logic
+            if (cleanStats.leaderboard.length === 0) {
+                 // If empty, re-init
+                 // We can't call initLeaderboard directly inside effect easily without dependencies, 
+                 // so we manually construct it or let the ELSE block handle it if we didn't setStats yet.
+                 // But here we are in the "saved" block.
+                 // Let's rely on syncWithLeaderboard to fix the user entry at least.
+            }
+
+            setStats(cleanStats);
+        } catch (e) {
+            console.error("Save data corrupted, resetting to defaults", e);
+            initLeaderboard(INITIAL_STATS.coins);
+        }
     } else {
         initLeaderboard(INITIAL_STATS.coins);
     }
@@ -245,7 +266,23 @@ export default function App() {
   // --- HELPER PARA SINCRONIZAR RANKING ---
   // Esta função garante que a entrada 'user' no leaderboard sempre reflete os dados globais
   const syncWithLeaderboard = (s: UserStats): UserStats => {
-      const newLeaderboard = s.leaderboard.map(entry => {
+      if (!s.leaderboard || !Array.isArray(s.leaderboard)) {
+          // Se o leaderboard estiver quebrado, recrie-o com apenas o usuário
+          return {
+              ...s,
+              leaderboard: [{ id: 'user', name: 'Você', coins: s.coins, avatar: s.currentAvatar, isUser: true, streak: s.streak }]
+          };
+      }
+
+      const userExists = s.leaderboard.some(e => e.isUser);
+      let newLeaderboard = [...s.leaderboard];
+
+      if (!userExists) {
+          // Force insert user if missing
+          newLeaderboard.push({ id: 'user', name: 'Você', coins: s.coins, avatar: s.currentAvatar, isUser: true, streak: s.streak });
+      }
+
+      newLeaderboard = newLeaderboard.map(entry => {
           if (entry.isUser) {
               return {
                   ...entry,
