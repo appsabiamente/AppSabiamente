@@ -67,8 +67,9 @@ const MathGame: React.FC<MathGameProps> = ({ onComplete, onExit, onRequestAd, hi
               if (prev <= 1) {
                   clearInterval(timerRef.current);
                   playFailureSound();
-                  alert(`Tempo esgotado! A resposta era R$ ${answer}.\nSua pontuação final: ${score}`);
-                  onComplete(0); // Lose if time runs out
+                  const consolation = Math.floor(score / 4);
+                  alert(`Tempo esgotado! A resposta era R$ ${answer}.\nVocê garantiu ${consolation} moedas (1/4).`);
+                  onComplete(consolation); 
                   return 0;
               }
               return prev - 1;
@@ -85,8 +86,9 @@ const MathGame: React.FC<MathGameProps> = ({ onComplete, onExit, onRequestAd, hi
         generateProblem();
     } else {
         playFailureSound();
-        alert(`Cálculo incorreto! A resposta era R$ ${answer}.\nVocê perdeu o que ganhou nesta partida.`);
-        onComplete(0); // Lose all coins
+        const consolation = Math.floor(score / 4);
+        alert(`Cálculo incorreto! A resposta era R$ ${answer}.\nVocê leva ${consolation} moedas (1/4 do total).`);
+        onComplete(consolation); 
     }
   };
 

@@ -575,18 +575,26 @@ export const EstimateGame: React.FC<GameProps> = ({ onComplete, onExit, highScor
     const [dots, setDots] = useState(0);
     const [showDots, setShowDots] = useState(true);
     const [score, setScore] = useState(0);
-    const [round, setRound] = useState(0);
+    const [round, setRound] = useState(1);
     const [visibleOptionsCount, setVisibleOptionsCount] = useState(0);
 
     // Round initialization
     useEffect(() => {
-        const count = Math.floor(Math.random() * 20) + 5;
+        // Infinite progression: Dots range increases with rounds
+        const minDots = 5 + round;
+        const maxDots = 20 + (round * 5); // Rapid scaling
+        const count = Math.floor(Math.random() * (maxDots - minDots + 1)) + minDots;
+        
         setDots(count);
         setShowDots(true);
         setVisibleOptionsCount(0); // Reset options visibility
 
-        // Show dots for limited time based on count (harder with more dots)
-        const showTime = 2000 + (count * 100); 
+        // Show dots for limited time. Harder levels = slightly less time per dot ratio?
+        // Base 2s + 100ms per dot. Subtract time as levels get high to add pressure.
+        const baseTime = 2000 + (count * 100); 
+        const reduction = Math.min(1000, round * 100); // Up to 1s reduction at level 10
+        const showTime = Math.max(1500, baseTime - reduction);
+
         const t = setTimeout(() => {
             setShowDots(false);
         }, showTime); 
@@ -619,23 +627,27 @@ export const EstimateGame: React.FC<GameProps> = ({ onComplete, onExit, highScor
     const handleGuess = (val: number) => {
         if (val === dots) {
             playSuccessSound();
-            setScore(s => s + 10);
+            setScore(s => s + 10 + (round * 2)); // More points for harder levels
             setRound(r => r + 1);
         } else {
             playFailureSound(0);
-            alert(`Errou! Eram ${dots} bolinhas.`);
-            onComplete(0); // LOSE ALL on mistake
+            const consolation = Math.floor(score / 4);
+            alert(`Errou! Eram ${dots} bolinhas.\nVocê chegou ao Nível ${round}!\nPrêmio: ${consolation} moedas.`);
+            onComplete(consolation); 
         }
     };
 
-    const options = React.useMemo(() => 
-        [dots, dots + Math.floor(Math.random()*3)+1, dots - Math.floor(Math.random()*3)-1].sort(()=>Math.random()-0.5)
-    , [dots]);
+    const options = React.useMemo(() => {
+        const spread = Math.max(1, Math.floor(dots * 0.2)); // 20% variance
+        const w1 = dots + Math.floor(Math.random() * spread) + 1;
+        const w2 = dots - Math.floor(Math.random() * spread) - 1;
+        return [dots, w1, w2].sort(()=>Math.random()-0.5);
+    }, [dots]);
 
     return (
         <div className="flex flex-col h-full bg-brand-bg">
             <GameHeader 
-                title="Estimativa" 
+                title={`Estimativa Nv.${round}`} 
                 icon={<Activity size={24} className="text-orange-600"/>} 
                 onExit={onExit} 
                 currentCoins={score} 
@@ -646,7 +658,7 @@ export const EstimateGame: React.FC<GameProps> = ({ onComplete, onExit, highScor
             />
             <div className="flex-grow flex flex-col items-center justify-center p-6">
                 <div className="bg-white p-8 rounded-3xl w-72 h-72 flex flex-wrap gap-3 content-center justify-center shadow-soft mb-8 overflow-hidden">
-                    {showDots ? [...Array(dots)].map((_,i) => <div key={i} className="w-5 h-5 bg-orange-400 rounded-full animate-bounce"></div>) : <div className="text-6xl font-bold text-gray-300">?</div>}
+                    {showDots ? [...Array(dots)].map((_,i) => <div key={i} className="w-4 h-4 bg-orange-400 rounded-full animate-bounce"></div>) : <div className="text-6xl font-bold text-gray-300">?</div>}
                 </div>
                 {!showDots && (
                     <div className="flex gap-4 min-h-[80px]">

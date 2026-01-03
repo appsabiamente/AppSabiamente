@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Screen, UserStats, Minigame, ThemeId, AvatarId, StoreItem, Achievement, LeaderboardEntry, Language } from './types';
 import { Video, Star, Brain, Music, Calculator, ClipboardList, Coins, Target, Zap, Activity, Wind, Eye, Square, LayoutGrid, Info, Home, Store, User, RotateCcw, Check, Sparkles, Infinity as InfinityIcon, Lock, Unlock, Grid, Link, Quote, AlertCircle, Type, Grid3X3, Palette, Search, Trophy, Medal, Crown, Ghost, Sun, Gamepad, CheckCircle, XCircle, Box, Copy, TrendingUp, CloudRain, ListOrdered, MousePointerClick, SunMedium, Moon, Cloud, Flower, Settings as SettingsIcon, Users, Clover, ArrowUpCircle, Flame, ThumbsUp, Play, CheckSquare, HeartHandshake, WifiOff, SignalHigh } from 'lucide-react';
 
-import { setMuted } from './services/audioService';
+import { setMuted, playClickSound, playFanfare } from './services/audioService';
 import MemoryGame from './components/MemoryGame';
 import TriviaGame from './components/TriviaGame';
 import MathGame from './components/MathGame';
@@ -200,6 +200,20 @@ export default function App() {
     checkAchievements();
     setMuted(!stats.soundEnabled);
   }, [stats]);
+
+  // --- GLOBAL CLICK SOUND EFFECT ---
+  useEffect(() => {
+      const handleGlobalClick = (e: MouseEvent) => {
+          // Check if target is a button or inside a button/interactive element
+          const target = e.target as HTMLElement;
+          if (target.closest('button') || target.closest('a') || target.closest('.interactive')) {
+              playClickSound();
+          }
+      };
+      
+      window.addEventListener('click', handleGlobalClick);
+      return () => window.removeEventListener('click', handleGlobalClick);
+  }, []);
 
   // --- CONNECTIVITY CHECK ---
   useEffect(() => {
@@ -449,6 +463,7 @@ export default function App() {
               levelUpReward = newLevel * 50; 
               newCoins += levelUpReward;
               setLevelUpData({ level: newLevel, reward: levelUpReward });
+              playFanfare(); // Play Fanfare on level up
           }
       }
 
@@ -716,6 +731,9 @@ export default function App() {
                                 const isCostLocked = g.unlockCost && !stats.unlockedGames.includes(g.id);
                                 const isAdLocked = g.unlockAd && !stats.unlockedGames.includes(g.id);
                                 const isLocked = isLevelLocked || isCostLocked || isAdLocked;
+                                
+                                // Get High Score
+                                const score = stats.highScores[g.id] || 0;
 
                                 return (
                                 <button 
@@ -723,9 +741,16 @@ export default function App() {
                                     onClick={() => tryStartGame(g)} 
                                     className={`relative p-4 rounded-3xl shadow-soft border flex flex-col gap-3 transition-all bg-white border-white hover:scale-[1.02] hover:shadow-lg ${isLocked ? 'opacity-90' : ''}`}
                                 >
+                                    {/* High Score Badge */}
+                                    {score > 0 && !isLocked && (
+                                        <div className="absolute top-2 right-2 bg-yellow-50 text-yellow-700 border border-yellow-200 text-[10px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-0.5 shadow-sm z-10">
+                                            <Trophy size={8} className="fill-yellow-500 text-yellow-500" /> {score}
+                                        </div>
+                                    )}
+
                                     {/* LOCK OVERLAY */}
                                     {isLocked && (
-                                        <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-10 rounded-3xl flex flex-col items-center justify-center">
+                                        <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-20 rounded-3xl flex flex-col items-center justify-center">
                                             {isLevelLocked && (
                                                 <div className="bg-gray-900 text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1">
                                                     <Lock size={12}/> Nv. {g.unlockLevel}
