@@ -77,8 +77,6 @@ const Betting: React.FC<BettingProps> = ({ stats, onUpdateStats, onRequestAd, on
         const d = new Date();
         d.setDate(d.getDate() + (7 - d.getDay()) % 7);
         d.setHours(23, 59, 59, 0);
-        // If today is Sunday and it's already late, move to next week? 
-        // For simplicity, just add 7 days if current date > target
         if (d.getTime() <= new Date().getTime()) {
              d.setDate(d.getDate() + 7);
         }
@@ -98,7 +96,6 @@ const Betting: React.FC<BettingProps> = ({ stats, onUpdateStats, onRequestAd, on
                 let didWin = false;
 
                 // Simple simulation: Each ticket rolls for prizes
-                // A user can theoretically win multiple prizes, but we'll cap at best win for simplicity
                 for (let i = 0; i < stats.weeklyTickets; i++) {
                     const roll = Math.random();
                     if (roll < RAFFLE_JACKPOTS[0].chance) { winAmount = Math.max(winAmount, RAFFLE_JACKPOTS[0].amount); prizeName="Ouro"; didWin=true; }
@@ -172,17 +169,43 @@ const Betting: React.FC<BettingProps> = ({ stats, onUpdateStats, onRequestAd, on
             }
         }
 
-        // Each segment is 90 degrees.
-        const segmentAngle = 360 / SEGMENTS.length; // 90
-        const spins = 360 * (5 + Math.floor(Math.random() * 5)); // 5-10 spins
-        // Target angle logic to land roughly in middle of segment
-        const targetAngle = spins + (360 - (selectedSegmentIndex * segmentAngle)) - (segmentAngle / 2);
+        // Calculation:
+        // Each segment is 360 / 4 = 90 deg.
+        // Index 0: 0-90 (Red 0x)
+        // Index 1: 90-180 (Blue 2x)
+        // Index 2: 180-270 (Green 5x)
+        // Index 3: 270-360 (Yellow 10x)
+        // To point at a segment, we need the POINTER (at top) to land there.
+        // If pointer is at 0 (top), rotating the WHEEL moves the segments.
+        // We need to calculate cumulative rotation to add to current rotation state.
+        
+        const segmentArc = 360 / SEGMENTS.length;
+        const randomOffset = Math.random() * (segmentArc - 10) + 5; // Add randomness inside segment
+        
+        // Calculate where the wheel needs to land to point at the selected segment
+        // Note: The pointer is at top (0 deg). 
+        // If we want segment 0 (0-90 deg) to be at top, we rotate -45 deg? 
+        // Actually simpler: Just rotate a multiple of 360 + specific angle.
+        // Target Angle relative to 0: 360 - (Index * Arc + Arc/2)
+        
+        const spins = 5; // Minimum full spins
+        const baseTarget = 360 * spins;
+        
+        // Target rotation to land specific index under pointer at 0 deg (top)
+        // e.g. Index 0 is at 0-90deg on the wheel image. To get it to top, we rotate roughly 360-45 = 315?
+        // Let's rely on relative calculation:
+        // Current Angle % 360 gives current position.
+        // We add (360 - current % 360) to reset to 0, then add target.
+        
+        const targetAngleForIndex = 360 - (selectedSegmentIndex * segmentArc) - (segmentArc / 2); // Center of segment
+        const totalRotationNeeded = baseTarget + targetAngleForIndex + (Math.random() * 20 - 10); // + jitter
 
-        setRotation(targetAngle);
+        // IMPORTANT: Add to EXISTING rotation to ensure smooth forward spin
+        setRotation(prev => prev + totalRotationNeeded);
 
         setTimeout(() => {
             setIsSpinning(false);
-            setAdUnlocked(false); // Lock it again
+            setAdUnlocked(false); 
             const segment = SEGMENTS[selectedSegmentIndex];
             
             if (segment.multiplier > 0) {
@@ -200,7 +223,6 @@ const Betting: React.FC<BettingProps> = ({ stats, onUpdateStats, onRequestAd, on
     };
 
     const getCurrentStreakIndex = () => {
-        // Simple modulo to keep it cycling 0-6 visually, even if streak > 7
         return stats.dailyStreak % 7;
     }
 
@@ -243,7 +265,7 @@ const Betting: React.FC<BettingProps> = ({ stats, onUpdateStats, onRequestAd, on
                 </div>
             </div>
 
-            {/* Daily Challenge Component (Moved Here) */}
+            {/* Daily Challenge Component */}
             <DailyChallenge 
                 stats={stats} 
                 onWin={onWinDaily} 
@@ -311,14 +333,11 @@ const Betting: React.FC<BettingProps> = ({ stats, onUpdateStats, onRequestAd, on
 
             <div className="bg-white p-6 rounded-3xl shadow-soft border border-gray-100 flex flex-col items-center justify-center relative overflow-hidden min-h-[400px]">
                  
-                 {/* Wheel Container - Explicit dimensions for perfect circle */}
                  <div className="relative w-60 h-60 mb-8 flex-shrink-0">
-                     {/* Pointer */}
                      <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-20">
                          <div className="w-0 h-0 border-l-[15px] border-l-transparent border-r-[15px] border-r-transparent border-t-[25px] border-t-gray-800 drop-shadow-lg"></div>
                      </div>
 
-                     {/* The Wheel */}
                      <div 
                         className="w-full h-full rounded-full border-8 border-gray-800 relative overflow-hidden transition-transform duration-[3000ms] cubic-bezier(0.2, 0.8, 0.2, 1) shadow-2xl"
                         style={{ 
@@ -331,9 +350,7 @@ const Betting: React.FC<BettingProps> = ({ stats, onUpdateStats, onRequestAd, on
                             )` 
                         }}
                      >
-                         {/* Labels */}
                          {SEGMENTS.map((seg, i) => {
-                             // Rotate container to angle, then translate text out
                              const rotation = i * 90 + 45; 
                              return (
                                  <div 
@@ -346,7 +363,6 @@ const Betting: React.FC<BettingProps> = ({ stats, onUpdateStats, onRequestAd, on
                              )
                          })}
                          
-                         {/* Center Cap */}
                          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-14 h-14 bg-white rounded-full shadow-lg flex items-center justify-center border-4 border-gray-200 z-10">
                              <Clover className="text-purple-600" />
                          </div>

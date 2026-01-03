@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { generateIntruderTask, generateProverbTask, generateScrambleTask, validateWordChain } from '../services/geminiService';
 import { IntruderTask, ProverbTask, ScrambleTask } from '../types';
 import { playSuccessSound, playFailureSound } from '../services/audioService';
-import { Loader2, CheckCircle, XCircle, Activity, Wind, Square, Circle, Play, Send, X, AlertCircle, Quote, Type, Zap, Eye, Target, Link, LayoutGrid, Heart, Palette, Search, Grid3X3, MousePointerClick, RotateCcw, Box, Copy, TrendingUp, CloudRain, Coins, MapPin, Trophy, Wallet, Video, Delete, CornerDownLeft, ArrowUp, ArrowDown } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, Activity, Wind, Square, Circle, Play, Send, X, AlertCircle, Quote, Type, Zap, Eye, Target, Link, LayoutGrid, Heart, Palette, Search, Grid3X3, MousePointerClick, RotateCcw, Box, Copy, TrendingUp, CloudRain, Coins, MapPin, Trophy, Wallet, Video, Delete, CornerDownLeft, ArrowUp, ArrowDown, RotateCw, Trash2, Repeat, Flame } from 'lucide-react';
 
 // Common Props
 interface GameProps {
@@ -25,7 +25,8 @@ const GameHeader: React.FC<{
     onGetAdvantage?: () => void;
     advantageLabel?: string;
     highScore?: number;
-}> = ({ title, icon, onExit, color = "text-gray-600", rightContent, currentCoins = 0, onCollect, onGetAdvantage, advantageLabel = "Ajuda (Vídeo)", highScore }) => (
+    scoreLabel?: string;
+}> = ({ title, icon, onExit, color = "text-gray-600", rightContent, currentCoins = 0, onCollect, onGetAdvantage, advantageLabel = "Ajuda (Vídeo)", highScore, scoreLabel = "Recorde" }) => (
     <div className="flex flex-col p-4 bg-white shadow-sm rounded-b-3xl z-10 mb-4 gap-4">
         <div className="flex justify-between items-center w-full">
             <div className="flex items-center gap-3">
@@ -36,7 +37,7 @@ const GameHeader: React.FC<{
                     <h2 className="text-xl font-bold text-gray-800 leading-none">{title}</h2>
                     <div className="flex flex-col">
                         {currentCoins > 0 && <span className="text-xs font-bold text-yellow-600 flex items-center gap-1 mt-1"><Coins size={12}/> +{currentCoins}</span>}
-                        {highScore && highScore > 0 && <span className="text-[10px] text-gray-400 font-bold flex items-center gap-1"><Trophy size={10}/> Max: {highScore}</span>}
+                        {highScore !== undefined && highScore > 0 && <span className="text-[10px] text-gray-400 font-bold flex items-center gap-1"><Trophy size={10}/> {scoreLabel}: {highScore}</span>}
                     </div>
                 </div>
             </div>
@@ -146,7 +147,6 @@ export const WordChainGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
             setScore(s => s + pts);
             setTimeLeft(15);
             
-            // Foco de volta no input
             setTimeout(() => inputRef.current?.focus(), 100);
 
             if (newHistory.length > 0 && newHistory.length % 4 === 0) {
@@ -176,6 +176,7 @@ export const WordChainGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
                 onGetAdvantage={handleAdvantage}
                 advantageLabel="+15s (Vídeo)"
                 highScore={highScore}
+                scoreLabel="Máx Pontos"
                 rightContent={
                 <div className={`font-bold text-lg px-3 py-1 rounded ${timeLeft < 5 ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-blue-100 text-blue-800'}`}>
                     {timeLeft}s
@@ -232,10 +233,13 @@ export const ZenFocusGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
     const [gameOver, setGameOver] = useState(false);
     const reqRef = useRef<number>();
     
-    const speedMultiplier = 1 + (score / 40); 
+    // START SLOWER, GET FASTER RAPIDLY
+    // Starts at speed 0.8, increases by 0.05 per point. e.g., score 20 = 1.8x speed.
+    const speedMultiplier = 0.8 + (score * 0.05); 
 
     useEffect(() => {
         if(gameOver) return;
+        const spawnRate = Math.max(300, 1500 / speedMultiplier); // Cap max spawn rate
         const spawn = setInterval(() => {
             setItems(prev => [...prev, {
                 id: Date.now(),
@@ -243,11 +247,11 @@ export const ZenFocusGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
                 x: Math.random() * 80 + 10,
                 y: 100
             }]);
-        }, 1000 / speedMultiplier);
+        }, spawnRate);
 
         const loop = () => {
             setItems(prev => {
-                const next = prev.map(i => ({...i, y: i.y - (0.9 * speedMultiplier)})); 
+                const next = prev.map(i => ({...i, y: i.y - (0.5 * speedMultiplier)})); 
                 next.forEach(i => {
                     if (i.y < -10 && i.type === 'good') {
                         playFailureSound(0);
@@ -313,6 +317,7 @@ export const ZenFocusGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
                 onGetAdvantage={handleAdvantage}
                 advantageLabel="Vida Extra (Vídeo)"
                 highScore={highScore}
+                scoreLabel="Máx Pontos"
                 rightContent={<div className="flex gap-1 text-red-500">{[...Array(lives)].map((_,i)=><Heart key={i} size={20} fill="currentColor"/>)}</div>} 
             />
             <div className="flex-grow relative cursor-crosshair z-0">
@@ -331,7 +336,7 @@ export const ZenFocusGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
     )
 }
 
-export const SumTargetGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd }) => {
+export const SumTargetGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd, highScore }) => {
      const [target, setTarget] = useState(15);
      const [currentSum, setCurrentSum] = useState(0);
      const [options, setOptions] = useState<number[]>([]);
@@ -340,6 +345,7 @@ export const SumTargetGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
      const [paused, setPaused] = useState(false);
      const [showVictory, setShowVictory] = useState(false);
      const isGameOverRef = useRef(false);
+     const [history, setHistory] = useState<{value: number, index: number}[]>([]);
  
      useEffect(() => { resetRound(); }, []);
  
@@ -366,17 +372,25 @@ export const SumTargetGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
  
      const resetRound = () => {
          isGameOverRef.current = false;
+         
+         // Generate valid solution first
          const t = Math.floor(Math.random() * 25) + 20; 
          setTarget(t);
          setCurrentSum(0);
-         let newOptions: number[] = [];
-         let totalSum = 0;
-         do {
-             newOptions = Array.from({length: 9}, () => Math.floor(Math.random() * 12) + 1);
-             totalSum = newOptions.reduce((acc, curr) => acc + curr, 0);
-         } while (totalSum < t);
-         setOptions(newOptions);
-         setTimeLeft(15);
+         setHistory([]);
+         
+         // Create 3 numbers that definitely sum to target
+         const p1 = Math.floor(Math.random() * (t - 5)) + 1;
+         const p2 = Math.floor(Math.random() * (t - p1 - 2)) + 1;
+         const p3 = t - p1 - p2;
+         const solution = [p1, p2, p3];
+         
+         // Fill rest with 6 randoms
+         const randoms = Array.from({length: 6}, () => Math.floor(Math.random() * 15) + 1);
+         const allOpts = [...solution, ...randoms].sort(() => Math.random() - 0.5);
+         
+         setOptions(allOpts);
+         setTimeLeft(20);
          setShowVictory(false);
      };
 
@@ -393,14 +407,17 @@ export const SumTargetGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
          const newSum = currentSum + num;
          setCurrentSum(newSum);
          const newOpts = [...options];
-         newOpts[idx] = -1; 
+         newOpts[idx] = -1; // Mark used
          setOptions(newOpts);
+         setHistory([...history, {value: num, index: idx}]);
  
          if (newSum === target) {
              playSuccessSound();
              setScore(s => s + 5);
              setShowVictory(true); 
          } else if (newSum > target) {
+             // Instant fail if slightly over? Maybe forgiving is better, but request was just "clear button"
+             // Let's allow clear if over? No, challenge implies losing if careless.
              if (!isGameOverRef.current) {
                  isGameOverRef.current = true;
                  playFailureSound(0);
@@ -408,6 +425,20 @@ export const SumTargetGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
                  onComplete(0);
              }
          }
+     };
+
+     const handleClear = () => {
+         if (history.length === 0) return;
+         // Reset everything
+         const lastHistory = [...history]; // actually clear all
+         setHistory([]);
+         setCurrentSum(0);
+         // Restore options
+         const newOpts = [...options];
+         lastHistory.forEach(h => {
+             newOpts[h.index] = h.value;
+         });
+         setOptions(newOpts);
      };
  
      return (
@@ -420,6 +451,8 @@ export const SumTargetGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
                 onCollect={() => onComplete(score)}
                 onGetAdvantage={handleAdvantage}
                 advantageLabel="+10s (Vídeo)"
+                highScore={highScore}
+                scoreLabel="Máx Pontos"
                 rightContent={<span className="font-bold text-red-500">{timeLeft}s</span>} 
             />
             
@@ -436,14 +469,18 @@ export const SumTargetGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
             )}
 
              <div className="p-6 flex flex-col flex-grow">
-                 <div className="bg-white p-6 rounded-3xl text-center shadow-soft mb-8">
+                 <div className="bg-white p-6 rounded-3xl text-center shadow-soft mb-8 relative">
                      <p className="text-gray-400 text-sm mb-1">Meta</p>
                      <div className="text-6xl font-black text-gray-800 tracking-tighter">{target}</div>
-                     <p className="mt-2 text-green-600 font-bold text-lg">{currentSum}</p>
+                     <p className={`mt-2 font-bold text-lg transition-colors ${currentSum > target ? 'text-red-500' : 'text-green-600'}`}>{currentSum}</p>
+                     
+                     <button onClick={handleClear} disabled={currentSum === 0} className="absolute right-4 top-4 p-2 bg-gray-100 rounded-full hover:bg-gray-200 disabled:opacity-30">
+                         <Trash2 size={20} className="text-gray-600"/>
+                     </button>
                  </div>
                  <div className="grid grid-cols-3 gap-4">
                      {options.map((num, i) => (
-                         <button key={i} disabled={num === -1} onClick={() => add(num, i)} className={`aspect-square rounded-2xl text-2xl font-bold transition-all ${num === -1 ? 'opacity-0' : 'bg-white shadow-soft hover:bg-green-50 text-gray-700'}`}>{num}</button>
+                         <button key={i} disabled={num === -1} onClick={() => add(num, i)} className={`aspect-square rounded-2xl text-2xl font-bold transition-all ${num === -1 ? 'opacity-0 pointer-events-none' : 'bg-white shadow-soft hover:bg-green-50 text-gray-700 active:scale-95'}`}>{num}</button>
                      ))}
                  </div>
              </div>
@@ -451,165 +488,63 @@ export const SumTargetGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
      );
  };
 
-// === MISSING GAMES IMPLEMENTATION ===
-
-export const IntruderGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd, highScore }) => {
-    const [task, setTask] = useState<IntruderTask | null>(null);
+export const CardGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd, highScore }) => {
+    const [currentCard, setCurrentCard] = useState(5);
     const [score, setScore] = useState(0);
-    const [loading, setLoading] = useState(true);
+    const [combo, setCombo] = useState(0);
 
-    const loadTask = async () => {
-        setLoading(true);
-        const t = await generateIntruderTask();
-        if(t) setTask(t);
-        setLoading(false);
-    };
-
-    useEffect(() => { loadTask(); }, []);
-
-    const handleSelect = (item: string) => {
-        if(!task) return;
-        if(item === task.intruder) {
+    const handleGuess = (higher: boolean) => {
+        const next = Math.floor(Math.random() * 13) + 1;
+        if ((higher && next >= currentCard) || (!higher && next <= currentCard)) {
             playSuccessSound();
-            setScore(s => s + 5);
-            alert("Correto! " + task.reason);
-            loadTask();
+            const comboBonus = Math.min(combo, 5); // Max 5 extra points
+            setScore(s => s + 2 + comboBonus);
+            setCombo(c => c + 1);
+            setCurrentCard(next);
         } else {
             playFailureSound();
-            alert("Errado! O intruso era: " + task.intruder);
+            alert(`Era ${next}! Fim de jogo.`);
             onComplete(score);
         }
     }
 
     const handleAdvantage = () => {
-        onRequestAd(() => {
-            if (task) alert("Dica: " + task.reason);
-        });
+         onRequestAd(() => {
+             // Peek?
+             alert("A próxima carta é " + (Math.random() > 0.5 ? "Alta (>7)" : "Baixa (<7)")); // Fake hint for now or implement real peek
+         });
     }
 
     return (
         <div className="flex flex-col h-full bg-brand-bg">
-            <GameHeader title="Intruso" icon={<AlertCircle size={24} className="text-red-500"/>} onExit={onExit} currentCoins={score} onCollect={() => onComplete(score)} onGetAdvantage={handleAdvantage} advantageLabel="Dica (Vídeo)" highScore={highScore} />
-            <div className="p-6 flex-grow flex flex-col justify-center">
-                {loading ? <Loader2 className="animate-spin mx-auto"/> : (
-                    <>
-                        <h3 className="text-xl text-center font-bold mb-8 text-gray-700">Qual item não pertence?</h3>
-                        <div className="grid grid-cols-1 gap-4">
-                            {task?.items.map((item, i) => (
-                                <button key={i} onClick={() => handleSelect(item)} className="bg-white p-6 rounded-2xl shadow-sm font-bold text-lg hover:bg-gray-50 border border-gray-100">{item}</button>
-                            ))}
+            <GameHeader 
+                title="Cartas" 
+                icon={<Copy size={24} className="text-red-600"/>} 
+                onExit={onExit} 
+                currentCoins={score} 
+                onCollect={() => onComplete(score)} 
+                onGetAdvantage={handleAdvantage} 
+                advantageLabel="Dica (Vídeo)" 
+                highScore={highScore} 
+                scoreLabel="Máx Pontos"
+            />
+            <div className="flex-grow flex flex-col items-center justify-center gap-8 p-6">
+                <div className="h-8">
+                    {combo >= 2 && (
+                        <div className="bg-orange-100 text-orange-600 px-4 py-1 rounded-full font-bold text-sm animate-bounce flex items-center gap-1">
+                            <Flame size={14}/> COMBO x{combo} (+{Math.min(combo, 5)})
                         </div>
-                    </>
-                )}
-            </div>
-        </div>
-    );
-}
-
-export const ProverbGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd, highScore }) => {
-    const [task, setTask] = useState<ProverbTask | null>(null);
-    const [score, setScore] = useState(0);
-    const [loading, setLoading] = useState(true);
-
-    const loadTask = async () => {
-        setLoading(true);
-        const t = await generateProverbTask();
-        if(t) setTask(t);
-        setLoading(false);
-    };
-
-    useEffect(() => { loadTask(); }, []);
-
-    const handleSelect = (option: string) => {
-        if(!task) return;
-        if(option === task.part2) {
-            playSuccessSound();
-            setScore(s => s + 5);
-            loadTask();
-        } else {
-            playFailureSound();
-            alert("Errado! O certo era: " + task.part2);
-            onComplete(score);
-        }
-    }
-    
-    const handleAdvantage = () => {
-        onRequestAd(() => {
-            if(task) {
-                // Eliminate 2 wrong answers visually or logically would require more state
-                alert("A resposta começa com: " + task.part2.charAt(0));
-            }
-        });
-    }
-
-    return (
-        <div className="flex flex-col h-full bg-brand-bg">
-            <GameHeader title="Ditados" icon={<Quote size={24} className="text-amber-500"/>} onExit={onExit} currentCoins={score} onCollect={() => onComplete(score)} onGetAdvantage={handleAdvantage} advantageLabel="Primeira Letra (Vídeo)" highScore={highScore} />
-            <div className="p-6 flex-grow flex flex-col justify-center">
-                {loading ? <Loader2 className="animate-spin mx-auto"/> : (
-                    <>
-                        <div className="bg-amber-100 p-6 rounded-2xl mb-8 text-center border border-amber-200">
-                            <p className="text-amber-900 text-xl font-serif italic">"{task?.part1}..."</p>
-                        </div>
-                        <div className="grid grid-cols-1 gap-3">
-                            {[...(task?.options || []), task?.part2].sort(()=>Math.random()-0.5).map((opt, i) => (
-                                <button key={i} onClick={() => handleSelect(opt!)} className="bg-white p-5 rounded-xl shadow-sm font-medium text-gray-700 hover:bg-amber-50 border border-gray-100 text-left">{opt}</button>
-                            ))}
-                        </div>
-                    </>
-                )}
-            </div>
-        </div>
-    );
-}
-
-export const ScrambleGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd, highScore }) => {
-    const [task, setTask] = useState<ScrambleTask | null>(null);
-    const [input, setInput] = useState("");
-    const [score, setScore] = useState(0);
-    const [loading, setLoading] = useState(true);
-
-    const loadTask = async () => {
-        setLoading(true);
-        const t = await generateScrambleTask();
-        if(t) setTask(t);
-        setInput("");
-        setLoading(false);
-    };
-
-    useEffect(() => { loadTask(); }, []);
-
-    const check = () => {
-        if(!task) return;
-        if(input.toUpperCase().trim() === task.word.toUpperCase()) {
-            playSuccessSound();
-            setScore(s => s + 10);
-            loadTask();
-        } else {
-            playFailureSound();
-            alert("Tente novamente!");
-        }
-    }
-
-    const handleAdvantage = () => {
-        onRequestAd(() => {
-             if(task) alert("Dica: " + task.hint);
-        });
-    }
-
-    return (
-        <div className="flex flex-col h-full bg-brand-bg">
-            <GameHeader title="Embaralhado" icon={<Type size={24} className="text-purple-500"/>} onExit={onExit} currentCoins={score} onCollect={() => onComplete(score)} onGetAdvantage={handleAdvantage} advantageLabel="Dica (Vídeo)" highScore={highScore} />
-            <div className="p-6 flex-grow flex flex-col items-center justify-center">
-                {loading ? <Loader2 className="animate-spin"/> : (
-                    <>
-                        <div className="text-4xl font-black text-gray-800 tracking-widest mb-8 text-center break-all">
-                            {task?.scrambled}
-                        </div>
-                        <input value={input} onChange={e => setInput(e.target.value)} className="w-full p-4 rounded-xl border-2 border-purple-200 text-center text-xl uppercase font-bold mb-4" placeholder="Qual a palavra?" />
-                        <button onClick={check} className="w-full bg-purple-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg">Verificar</button>
-                    </>
-                )}
+                    )}
+                </div>
+                <div className="bg-white w-40 h-56 rounded-2xl shadow-lg border-2 border-red-200 flex items-center justify-center relative">
+                    <span className="text-6xl font-black text-red-600">{currentCard}</span>
+                    <div className="absolute top-2 left-2 text-red-600">♥</div>
+                    <div className="absolute bottom-2 right-2 text-red-600 rotate-180">♥</div>
+                </div>
+                <div className="flex gap-4 w-full">
+                    <button onClick={() => handleGuess(false)} className="flex-1 bg-blue-100 text-blue-800 py-4 rounded-xl font-bold flex flex-col items-center transition-transform active:scale-95"><ArrowDown/> Menor</button>
+                    <button onClick={() => handleGuess(true)} className="flex-1 bg-red-100 text-red-800 py-4 rounded-xl font-bold flex flex-col items-center transition-transform active:scale-95"><ArrowUp/> Maior</button>
+                </div>
             </div>
         </div>
     );
@@ -621,24 +556,46 @@ export const PatternGame: React.FC<GameProps> = ({ onComplete, onExit, onRequest
     const [phase, setPhase] = useState<'memorize' | 'recall'>('memorize');
     const [level, setLevel] = useState(1);
     const [score, setScore] = useState(0);
+    const [highlighted, setHighlighted] = useState<number | null>(null);
 
-    useEffect(() => { startLevel(); }, [level]);
+    // Initial Start
+    useEffect(() => { startLevel(1); }, []);
 
-    const startLevel = () => {
+    const startLevel = (lvl: number) => {
         setPhase('memorize');
         setUserPattern([]);
-        const len = 3 + Math.floor(level / 2);
+        const len = 3 + Math.floor(lvl / 2);
         const newPat = Array.from({length: len}, () => Math.floor(Math.random() * 9));
         setPattern(newPat);
-        setTimeout(() => setPhase('recall'), 2000 + (len * 500));
+        
+        // Play Pattern
+        let i = 0;
+        const interval = setInterval(() => {
+            if (i >= newPat.length) {
+                clearInterval(interval);
+                setHighlighted(null);
+                setPhase('recall');
+                return;
+            }
+            setHighlighted(newPat[i]);
+            // Sound optional here
+            setTimeout(() => setHighlighted(null), 400); // Blink duration
+            i++;
+        }, 800); // Speed
     };
 
     const handleTap = (idx: number) => {
         if(phase === 'memorize') return;
+        
+        // Feedback visual
+        setHighlighted(idx);
+        setTimeout(() => setHighlighted(null), 200);
+
         const newUp = [...userPattern, idx];
         setUserPattern(newUp);
         playSuccessSound(); // Short beep
 
+        // Check immediately
         if(newUp[newUp.length-1] !== pattern[newUp.length-1]) {
             playFailureSound();
             alert("Errou a sequência!");
@@ -648,36 +605,49 @@ export const PatternGame: React.FC<GameProps> = ({ onComplete, onExit, onRequest
 
         if(newUp.length === pattern.length) {
             playSuccessSound();
-            setScore(s => s + level * 2);
-            setTimeout(() => setLevel(l => l + 1), 500);
+            const bonus = level * 2;
+            setScore(s => s + bonus);
+            setLevel(l => l + 1);
+            setTimeout(() => startLevel(level + 1), 1000);
         }
     };
 
     const handleAdvantage = () => {
         onRequestAd(() => {
-            setPhase('memorize');
-            setTimeout(() => setPhase('recall'), 2000); // Show again for 2s
+            // Replay pattern logic needed here or simplified reset
+            startLevel(level); // Just restart current level pattern
         });
     }
 
     return (
         <div className="flex flex-col h-full bg-brand-bg">
-            <GameHeader title="Padrões" icon={<Grid3X3 size={24} className="text-indigo-500"/>} onExit={onExit} currentCoins={score} onCollect={() => onComplete(score)} onGetAdvantage={handleAdvantage} advantageLabel="Ver de Novo (Vídeo)" highScore={highScore} />
+            <GameHeader 
+                title="Padrões" 
+                icon={<Grid3X3 size={24} className="text-indigo-500"/>} 
+                onExit={onExit} 
+                currentCoins={score} 
+                onCollect={() => onComplete(score)} 
+                onGetAdvantage={handleAdvantage} 
+                advantageLabel="Ver de Novo (Vídeo)" 
+                highScore={highScore}
+                scoreLabel="Máx Pontos"
+            />
             <div className="flex-grow flex items-center justify-center p-6">
                 <div className="grid grid-cols-3 gap-3 w-full max-w-sm aspect-square">
                     {[0,1,2,3,4,5,6,7,8].map(i => {
-                        const active = phase === 'memorize' && pattern.includes(i);
+                        const isActive = highlighted === i;
                         return (
                             <button 
                                 key={i} 
                                 onClick={() => handleTap(i)}
-                                className={`rounded-xl transition-all duration-300 ${active ? 'bg-indigo-500 scale-95' : 'bg-white shadow-sm hover:bg-gray-50'}`}
+                                disabled={phase === 'memorize'}
+                                className={`rounded-xl transition-all duration-200 ${isActive ? 'bg-indigo-500 scale-95 shadow-glow' : 'bg-white shadow-sm hover:bg-gray-50'}`}
                             />
                         )
                     })}
                 </div>
             </div>
-            <p className="text-center pb-8 font-bold text-gray-500">{phase === 'memorize' ? 'Memorize...' : 'Repita!'}</p>
+            <p className="text-center pb-8 font-bold text-gray-500 transition-opacity duration-500">{phase === 'memorize' ? 'Memorize a ordem...' : 'Sua vez!'}</p>
         </div>
     );
 }
@@ -705,13 +675,16 @@ export const EstimateGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
 
     const handleGuess = (guess: number) => {
         const diff = Math.abs(guess - count);
+        
+        // STRICTER LOGIC
         if (diff === 0) {
             playSuccessSound();
             setScore(s => s + 10);
             startRound();
-        } else if (diff <= 2) {
+        } else if (diff <= 1 && count > 15) { // Only allow error of 1 if count is large
             playSuccessSound();
-            setScore(s => s + 5); // Close enough
+            setScore(s => s + 5); 
+            alert("Quase! Aceitamos por pouco.");
             startRound();
         } else {
             playFailureSound();
@@ -722,13 +695,23 @@ export const EstimateGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
 
     const handleAdvantage = () => {
          onRequestAd(() => {
-             alert(`A quantidade está entre ${Math.max(0, count - 3)} e ${count + 3}`);
+             alert(`A quantidade está entre ${Math.max(0, count - 2)} e ${count + 2}`);
          });
     }
 
     return (
         <div className="flex flex-col h-full bg-brand-bg relative overflow-hidden">
-            <GameHeader title="Estimativa" icon={<Activity size={24} className="text-orange-500"/>} onExit={onExit} currentCoins={score} onCollect={() => onComplete(score)} onGetAdvantage={handleAdvantage} advantageLabel="Dica de Faixa (Vídeo)" highScore={highScore} />
+            <GameHeader 
+                title="Estimativa" 
+                icon={<Activity size={24} className="text-orange-500"/>} 
+                onExit={onExit} 
+                currentCoins={score} 
+                onCollect={() => onComplete(score)} 
+                onGetAdvantage={handleAdvantage} 
+                advantageLabel="Dica de Faixa (Vídeo)" 
+                highScore={highScore}
+                scoreLabel="Máx Pontos"
+            />
             
             {phase === 'show' ? (
                 <div className="flex-grow relative">
@@ -744,7 +727,7 @@ export const EstimateGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
                     <h3 className="text-2xl font-bold">Quantos itens haviam?</h3>
                     <div className="grid grid-cols-3 gap-4 w-full">
                         {[count-2, count-1, count, count+1, count+2, count+5].sort(()=>Math.random()-0.5).map(opt => (
-                            <button key={opt} onClick={() => handleGuess(opt)} className="bg-white p-4 rounded-xl shadow-sm border font-bold text-xl hover:bg-orange-50">{opt}</button>
+                            <button key={opt} onClick={() => handleGuess(opt)} className="bg-white p-4 rounded-xl shadow-sm border font-bold text-xl hover:bg-orange-50 active:scale-95">{opt}</button>
                         ))}
                     </div>
                 </div>
@@ -753,12 +736,19 @@ export const EstimateGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
     );
 }
 
+// HARDER ROTATION GAME
 export const RotationGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd, highScore }) => {
-    // Simplified logic: Show an arrow, ask which option is rotated 90 deg right
+    // Uses asymmetric letters to ensure rotation is unambiguous and harder
+    const [targetLetter, setTargetLetter] = useState("F");
     const [angle, setAngle] = useState(0);
     const [score, setScore] = useState(0);
+    
+    const LETTERS = ["F", "R", "L", "G", "P", "J"];
 
-    useEffect(() => { setAngle(Math.floor(Math.random() * 4) * 90); }, [score]);
+    useEffect(() => { 
+        setTargetLetter(LETTERS[Math.floor(Math.random() * LETTERS.length)]);
+        setAngle(Math.floor(Math.random() * 4) * 90); 
+    }, [score]);
 
     const handleGuess = (guessAngle: number) => {
         const target = (angle + 90) % 360;
@@ -774,23 +764,42 @@ export const RotationGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
 
     const handleAdvantage = () => {
          onRequestAd(() => {
-             // Eliminate one wrong answer visually is hard without more state, so just give text hint
-             alert("Gire no sentido horário (direita)!");
+             alert("Gire no sentido horário (direita) ->");
          });
     }
 
     return (
         <div className="flex flex-col h-full bg-brand-bg">
-            <GameHeader title="Rotação" icon={<RotateCcw size={24} className="text-cyan-500"/>} onExit={onExit} currentCoins={score} onCollect={() => onComplete(score)} onGetAdvantage={handleAdvantage} advantageLabel="Dica (Vídeo)" highScore={highScore} />
+            <GameHeader 
+                title="Rotação" 
+                icon={<RotateCcw size={24} className="text-cyan-500"/>} 
+                onExit={onExit} 
+                currentCoins={score} 
+                onCollect={() => onComplete(score)} 
+                onGetAdvantage={handleAdvantage} 
+                advantageLabel="Dica (Vídeo)" 
+                highScore={highScore}
+                scoreLabel="Máx Pontos"
+            />
             <div className="flex-grow flex flex-col items-center justify-center gap-12 p-6">
-                <div className="bg-white p-8 rounded-3xl shadow-soft">
-                    <ArrowUp size={64} style={{transform: `rotate(${angle}deg)`}} className="text-cyan-600 transition-transform"/>
+                <div className="bg-white p-8 rounded-3xl shadow-soft w-32 h-32 flex items-center justify-center border border-gray-100">
+                    <span 
+                        className="text-8xl font-black text-cyan-600 transition-transform block" 
+                        style={{transform: `rotate(${angle}deg)`}}
+                    >
+                        {targetLetter}
+                    </span>
                 </div>
-                <div className="text-center font-bold text-gray-600">Qual figura é esta rodada 90° à direita?</div>
+                <div className="text-center font-bold text-gray-600 text-lg max-w-xs">Qual opção mostra a figura acima girada 90° à direita?</div>
                 <div className="grid grid-cols-2 gap-6">
                     {[0, 90, 180, 270].map(a => (
-                        <button key={a} onClick={() => handleGuess(a)} className="bg-white p-4 rounded-2xl shadow-sm hover:bg-cyan-50">
-                            <ArrowUp size={40} style={{transform: `rotate(${a}deg)`}} className="text-gray-700"/>
+                        <button key={a} onClick={() => handleGuess(a)} className="bg-white p-6 rounded-2xl shadow-sm hover:bg-cyan-50 flex items-center justify-center transition-transform active:scale-95">
+                            <span 
+                                className="text-5xl font-black text-gray-700 block"
+                                style={{transform: `rotate(${a}deg)`}}
+                            >
+                                {targetLetter}
+                            </span>
                         </button>
                     ))}
                 </div>
@@ -852,7 +861,7 @@ export const ColorMatchGame: React.FC<GameProps> = ({ onComplete, onExit, onRequ
 
     return (
         <div className="flex flex-col h-full bg-brand-bg">
-            <GameHeader title="Cores" icon={<Palette size={24} className="text-pink-500"/>} onExit={onExit} currentCoins={score} onCollect={() => onComplete(score)} onGetAdvantage={handleAdvantage} advantageLabel="+15s (Vídeo)" highScore={highScore} rightContent={<span className="font-bold text-red-500">{timeLeft}s</span>} />
+            <GameHeader title="Cores" icon={<Palette size={24} className="text-pink-500"/>} onExit={onExit} currentCoins={score} onCollect={() => onComplete(score)} onGetAdvantage={handleAdvantage} advantageLabel="+15s (Vídeo)" highScore={highScore} scoreLabel="Máx Pontos" rightContent={<span className="font-bold text-red-500">{timeLeft}s</span>} />
             <div className="flex-grow flex flex-col items-center justify-center p-6 gap-8">
                 <h3 className="text-xl font-bold uppercase text-gray-500">Toque na {questionType === 'meaning' ? 'PALAVRA' : 'COR'}</h3>
                 <div className="text-6xl font-black" style={{color: color}}>
@@ -874,7 +883,7 @@ export const HiddenObjectGame: React.FC<GameProps> = ({ onComplete, onExit, onRe
     const [target, setTarget] = useState<any>(null);
     const [score, setScore] = useState(0);
 
-    const icons = [Circle, Square, TriangleIcon, StarIcon, Heart]; // Simplified placeholders
+    const icons = [Circle, Square, TriangleIcon, StarIcon, Heart]; 
     
     useEffect(() => { startRound(); }, []);
 
@@ -900,7 +909,6 @@ export const HiddenObjectGame: React.FC<GameProps> = ({ onComplete, onExit, onRe
             startRound();
         } else {
             playFailureSound();
-            // Penalty or game over
             alert("Item errado!");
             onComplete(score);
         }
@@ -908,14 +916,13 @@ export const HiddenObjectGame: React.FC<GameProps> = ({ onComplete, onExit, onRe
 
     const handleAdvantage = () => {
         onRequestAd(() => {
-            // Highlight target
             alert("O item é vermelho!");
         });
     }
 
     return (
         <div className="flex flex-col h-full bg-brand-bg">
-            <GameHeader title="Oculto" icon={<Search size={24} className="text-gray-600"/>} onExit={onExit} currentCoins={score} onCollect={() => onComplete(score)} onGetAdvantage={handleAdvantage} advantageLabel="Dica (Vídeo)" highScore={highScore} />
+            <GameHeader title="Oculto" icon={<Search size={24} className="text-gray-600"/>} onExit={onExit} currentCoins={score} onCollect={() => onComplete(score)} onGetAdvantage={handleAdvantage} advantageLabel="Dica (Vídeo)" highScore={highScore} scoreLabel="Máx Pontos" />
             <div className="p-4 bg-white shadow-sm mb-4 text-center">
                 <span className="text-sm font-bold text-gray-500">Encontre este item:</span>
                 <div className="flex justify-center mt-2">
@@ -933,7 +940,6 @@ export const HiddenObjectGame: React.FC<GameProps> = ({ onComplete, onExit, onRe
     );
 }
 
-// Helpers for HiddenObject placeholders
 const TriangleIcon = ({size, className}:{size:number, className?:string}) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}><path d="M12 2L2 22h20L12 2z"/></svg>
 );
@@ -941,49 +947,7 @@ const StarIcon = ({size, className}:{size:number, className?:string}) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
 );
 
-export const CardGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd, highScore }) => {
-    const [currentCard, setCurrentCard] = useState(5);
-    const [score, setScore] = useState(0);
-
-    const handleGuess = (higher: boolean) => {
-        const next = Math.floor(Math.random() * 13) + 1;
-        if ((higher && next >= currentCard) || (!higher && next <= currentCard)) {
-            playSuccessSound();
-            setScore(s => s + 2);
-            setCurrentCard(next);
-        } else {
-            playFailureSound();
-            alert(`Era ${next}! Fim de jogo.`);
-            onComplete(score);
-        }
-    }
-
-    const handleAdvantage = () => {
-         onRequestAd(() => {
-             // Peek?
-             alert("A próxima carta é " + (Math.random() > 0.5 ? "Alta (>7)" : "Baixa (<7)")); // Fake hint for now or implement real peek
-         });
-    }
-
-    return (
-        <div className="flex flex-col h-full bg-brand-bg">
-            <GameHeader title="Cartas" icon={<Copy size={24} className="text-red-600"/>} onExit={onExit} currentCoins={score} onCollect={() => onComplete(score)} onGetAdvantage={handleAdvantage} advantageLabel="Dica (Vídeo)" highScore={highScore} />
-            <div className="flex-grow flex flex-col items-center justify-center gap-8 p-6">
-                <div className="bg-white w-40 h-56 rounded-2xl shadow-lg border-2 border-red-200 flex items-center justify-center">
-                    <span className="text-6xl font-black text-red-600">{currentCard}</span>
-                </div>
-                <div className="flex gap-4 w-full">
-                    <button onClick={() => handleGuess(false)} className="flex-1 bg-blue-100 text-blue-800 py-4 rounded-xl font-bold flex flex-col items-center"><ArrowDown/> Menor</button>
-                    <button onClick={() => handleGuess(true)} className="flex-1 bg-red-100 text-red-800 py-4 rounded-xl font-bold flex flex-col items-center"><ArrowUp/> Maior</button>
-                </div>
-            </div>
-        </div>
-    );
-}
-
 export const MathRainGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd, highScore }) => {
-    // Simple version: Equation falls, click correct answer before it hits bottom?
-    // Simplified for mobile: Just rapid fire math.
     const [q, setQ] = useState({t: "2+2", a: 4});
     const [timeLeft, setTimeLeft] = useState(5);
     const [score, setScore] = useState(0);
@@ -1023,12 +987,11 @@ export const MathRainGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
         });
     }
 
-    // Generate options around correct answer
     const opts = [q.a, q.a+1, q.a-1].sort(()=>Math.random()-0.5);
 
     return (
         <div className="flex flex-col h-full bg-brand-bg">
-            <GameHeader title="Chuva" icon={<CloudRain size={24} className="text-blue-500"/>} onExit={onExit} currentCoins={score} onCollect={() => onComplete(score)} onGetAdvantage={handleAdvantage} advantageLabel="+10s (Vídeo)" highScore={highScore} />
+            <GameHeader title="Chuva" icon={<CloudRain size={24} className="text-blue-500"/>} onExit={onExit} currentCoins={score} onCollect={() => onComplete(score)} onGetAdvantage={handleAdvantage} advantageLabel="+10s (Vídeo)" highScore={highScore} scoreLabel="Máx Pontos" />
             <div className="flex-grow flex flex-col items-center justify-center gap-8">
                  <div className="text-6xl font-black text-blue-600 animate-bounce">{q.t}</div>
                  <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden max-w-xs">
@@ -1045,7 +1008,6 @@ export const MathRainGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
 }
 
 export const MovingHuntGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd, highScore }) => {
-    // Balls bouncing. Find the red one.
     const [items, setItems] = useState<any[]>([]);
     const [score, setScore] = useState(0);
     const reqRef = useRef<number>();
@@ -1084,14 +1046,13 @@ export const MovingHuntGame: React.FC<GameProps> = ({ onComplete, onExit, onRequ
 
     const handleAdvantage = () => {
         onRequestAd(() => {
-            // Slow down
             alert("Câmera Lenta Ativada!");
         });
     }
 
     return (
         <div className="flex flex-col h-full bg-brand-bg relative overflow-hidden">
-            <GameHeader title="Caça" icon={<MousePointerClick size={24} className="text-red-500"/>} onExit={onExit} currentCoins={score} onCollect={() => onComplete(score)} onGetAdvantage={handleAdvantage} advantageLabel="Lento (Vídeo)" highScore={highScore} />
+            <GameHeader title="Caça" icon={<MousePointerClick size={24} className="text-red-500"/>} onExit={onExit} currentCoins={score} onCollect={() => onComplete(score)} onGetAdvantage={handleAdvantage} advantageLabel="Lento (Vídeo)" highScore={highScore} scoreLabel="Máx Pontos" />
             <div className="flex-grow relative">
                 {items.map(it => (
                     <button 
@@ -1103,6 +1064,171 @@ export const MovingHuntGame: React.FC<GameProps> = ({ onComplete, onExit, onRequ
                         {it.isTarget && <Target className="text-white" size={20}/>}
                     </button>
                 ))}
+            </div>
+        </div>
+    );
+}
+
+export const IntruderGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd, highScore }) => {
+    const [task, setTask] = useState<IntruderTask | null>(null);
+    const [score, setScore] = useState(0);
+    const [loading, setLoading] = useState(true);
+
+    const load = async () => {
+        setLoading(true);
+        const t = await generateIntruderTask();
+        if(t) setTask(t);
+        setLoading(false);
+    }
+
+    useEffect(() => { load(); }, []);
+
+    const handleGuess = (item: string) => {
+        if(!task) return;
+        if(item === task.intruder) {
+            playSuccessSound();
+            setScore(s => s + 10);
+            alert(`Correto! ${task.reason}`);
+            load();
+        } else {
+            playFailureSound();
+            alert("Não é esse o intruso.");
+            onComplete(score);
+        }
+    }
+
+    const handleAdvantage = () => {
+        onRequestAd(() => {
+            if(task) alert(`Dica: ${task.reason}`);
+        });
+    }
+
+    return (
+        <div className="flex flex-col h-full bg-brand-bg">
+            <GameHeader title="Intruso" icon={<Search size={24} className="text-purple-600"/>} onExit={onExit} currentCoins={score} onCollect={() => onComplete(score)} onGetAdvantage={handleAdvantage} advantageLabel="Dica (Vídeo)" highScore={highScore} scoreLabel="Máx Pontos" />
+            <div className="flex-grow flex flex-col items-center justify-center p-6 gap-6">
+                <h3 className="text-xl font-bold text-gray-700">Qual item não pertence?</h3>
+                {loading ? <Loader2 className="animate-spin text-purple-500" size={48}/> : (
+                    <div className="grid grid-cols-2 gap-4 w-full">
+                        {task?.items.map((item, i) => (
+                            <button key={i} onClick={() => handleGuess(item)} className="bg-white p-6 rounded-2xl shadow-sm font-bold text-lg hover:bg-purple-50 active:scale-95 transition-all border border-gray-100">{item}</button>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+export const ProverbGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd, highScore }) => {
+    const [task, setTask] = useState<ProverbTask | null>(null);
+    const [score, setScore] = useState(0);
+    const [loading, setLoading] = useState(true);
+
+    const load = async () => {
+        setLoading(true);
+        const t = await generateProverbTask();
+        if(t) setTask(t);
+        setLoading(false);
+    }
+
+    useEffect(() => { load(); }, []);
+
+    const handleGuess = (option: string) => {
+        if(!task) return;
+        if(option === task.part2) {
+            playSuccessSound();
+            setScore(s => s + 10);
+            load();
+        } else {
+            playFailureSound();
+            alert(`Errado! O correto era: "${task.part2}"`);
+            onComplete(score);
+        }
+    }
+
+    const handleAdvantage = () => {
+        onRequestAd(() => {
+            if(task) {
+                 alert(`Começa com: ${task.part2.substring(0, 3)}...`);
+            }
+        });
+    }
+
+    return (
+        <div className="flex flex-col h-full bg-brand-bg">
+            <GameHeader title="Ditados" icon={<Quote size={24} className="text-amber-600"/>} onExit={onExit} currentCoins={score} onCollect={() => onComplete(score)} onGetAdvantage={handleAdvantage} advantageLabel="Dica (Vídeo)" highScore={highScore} scoreLabel="Máx Pontos" />
+            <div className="flex-grow flex flex-col items-center justify-center p-6 gap-6">
+                {loading ? <Loader2 className="animate-spin text-amber-500" size={48}/> : (
+                    <>
+                        <div className="bg-amber-100 p-6 rounded-2xl w-full text-center shadow-inner">
+                            <p className="text-amber-900 text-xl font-serif italic">"{task?.part1}..."</p>
+                        </div>
+                        <div className="flex flex-col gap-3 w-full">
+                            {[...(task?.options || []), task?.part2].sort(()=>Math.random()-0.5).map((opt, i) => (
+                                <button key={i} onClick={() => handleGuess(opt!)} className="bg-white p-4 rounded-xl shadow-sm font-medium text-gray-800 hover:bg-amber-50 text-left border border-gray-100 active:scale-95 transition-all">{opt}</button>
+                            ))}
+                        </div>
+                    </>
+                )}
+            </div>
+        </div>
+    );
+}
+
+export const ScrambleGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd, highScore }) => {
+    const [task, setTask] = useState<ScrambleTask | null>(null);
+    const [input, setInput] = useState("");
+    const [score, setScore] = useState(0);
+    const [loading, setLoading] = useState(true);
+
+    const load = async () => {
+        setLoading(true);
+        const t = await generateScrambleTask();
+        if(t) setTask(t);
+        setInput("");
+        setLoading(false);
+    }
+
+    useEffect(() => { load(); }, []);
+
+    const check = () => {
+        if(!task) return;
+        if(input.trim().toUpperCase() === task.word.toUpperCase()) {
+            playSuccessSound();
+            setScore(s => s + 15);
+            load();
+        } else {
+            playFailureSound();
+            alert("Incorreto. Tente novamente.");
+        }
+    }
+
+    const handleAdvantage = () => {
+        onRequestAd(() => {
+            if(task) alert(`Dica: ${task.hint}`);
+        });
+    }
+
+    return (
+        <div className="flex flex-col h-full bg-brand-bg">
+            <GameHeader title="Embaralhado" icon={<Type size={24} className="text-indigo-600"/>} onExit={onExit} currentCoins={score} onCollect={() => onComplete(score)} onGetAdvantage={handleAdvantage} advantageLabel="Dica (Vídeo)" highScore={highScore} scoreLabel="Máx Pontos" />
+            <div className="flex-grow flex flex-col items-center justify-center p-6 gap-8">
+                {loading ? <Loader2 className="animate-spin text-indigo-500" size={48}/> : (
+                    <>
+                        <div className="text-center">
+                            <p className="text-sm text-gray-400 font-bold uppercase mb-2">Desembaralhe:</p>
+                            <div className="text-4xl font-black text-indigo-600 tracking-widest break-all">{task?.scrambled}</div>
+                        </div>
+                        <input 
+                            value={input}
+                            onChange={(e) => setInput(e.target.value.toUpperCase())}
+                            className="w-full p-4 text-center text-xl font-bold rounded-2xl border-2 border-indigo-100 focus:border-indigo-500 outline-none uppercase"
+                            placeholder="Sua resposta..."
+                        />
+                        <button onClick={check} className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold shadow-lg active:scale-95 transition-transform">Verificar</button>
+                    </>
+                )}
             </div>
         </div>
     );

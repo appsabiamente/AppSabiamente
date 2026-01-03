@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Screen, UserStats, Minigame, ThemeId, AvatarId, StoreItem, Achievement, LeaderboardEntry, Language } from './types';
-import { Video, Star, Brain, Music, Calculator, ClipboardList, Coins, Target, Zap, Activity, Wind, Eye, Square, LayoutGrid, Info, Home, Store, User, RotateCcw, Check, Sparkles, Infinity as InfinityIcon, Lock, Unlock, Grid, Link, Quote, AlertCircle, Type, Grid3X3, Palette, Search, Trophy, Medal, Crown, Ghost, Sun, Gamepad, CheckCircle, XCircle, Box, Copy, TrendingUp, CloudRain, ListOrdered, MousePointerClick, SunMedium, Moon, Cloud, Flower, Settings as SettingsIcon, Users, Clover, ArrowUpCircle, Flame, ThumbsUp, Play, CheckSquare, HeartHandshake, WifiOff, SignalHigh, Book, Feather, Leaf, Edit3 } from 'lucide-react';
+import { Video, Star, Brain, Music, Calculator, ClipboardList, Coins, Target, Zap, Activity, Wind, Eye, Square, LayoutGrid, Info, Home, Store, User, RotateCcw, Check, Sparkles, Infinity as InfinityIcon, Lock, Unlock, Grid, Link, Quote, AlertCircle, Type, Grid3X3, Palette, Search, Trophy, Medal, Crown, Ghost, Sun, Gamepad, CheckCircle, XCircle, Box, Copy, TrendingUp, CloudRain, ListOrdered, MousePointerClick, SunMedium, Moon, Cloud, Flower, Settings as SettingsIcon, Users, Clover, ArrowUpCircle, Flame, ThumbsUp, Play, CheckSquare, HeartHandshake, WifiOff, SignalHigh, Book, Feather, Leaf, Edit3, Image as ImageIcon } from 'lucide-react';
 
 import { setMuted, playClickSound, playFanfare, playCelebrationSound, playMagicalSound } from './services/audioService';
 import { triggerFireworks, triggerConfettiCannon, triggerCentralBurst } from './services/celebrationService';
@@ -39,7 +39,7 @@ const getNextSunday = () => {
 };
 
 const INITIAL_STATS: UserStats = {
-  userName: '', // Nome inicia vazio para ser preenchido
+  userName: '', 
   coins: 0,
   streak: 0, 
   totalGamesPlayed: 0,
@@ -69,7 +69,6 @@ const INITIAL_STATS: UserStats = {
   lastWateredDate: null 
 };
 
-// Gerador de Nomes Brasileiros para o Ranking Massivo
 const FIRST_NAMES = [
     "Maria", "João", "José", "Ana", "Francisco", "Luiz", "Paulo", "Carlos", "Manoel", "Pedro", 
     "Francisca", "Marcos", "Raimundo", "Sebastião", "Antônio", "Marcelo", "Jorge", "Geraldo", 
@@ -81,8 +80,6 @@ const LAST_NAMES = [
     "Gomes", "Costa", "Ribeiro", "Martins", "Carvalho", "Almeida", "Lopes", "Soares", "Fernandes", 
     "Vieira", "Barbosa", "Rocha", "Dias", "Nascimento", "Andrade", "Moreira", "Nunes", "Marques"
 ];
-
-// Nomes Fantasia para dar variedade (10-15% dos bots)
 const FANTASY_NAMES = [
     "Mestre do Saber", "Vovó Ninja", "Cérebro Ativo", "Super Vovô", "Rainha da Paz",
     "Coruja Sábia", "Águia Dourada", "Pensador", "Memória 1000", "Sábio 2024",
@@ -102,7 +99,6 @@ const ACHIEVEMENTS: Achievement[] = [
     { id: 'collector', title: 'Colecionador', description: 'Tenha 3 avatares.', icon: 'User', unlocked: false, reward: 250, condition: s => s.unlockedAvatars.length >= 3 },
     { id: 'millionaire', title: 'Tesouro', description: 'Acumule 2000 moedas.', icon: 'Coins', unlocked: false, reward: 400, condition: s => s.coins >= 2000 },
     { id: 'unstoppable', title: 'Imparável', description: 'Atinja Nível 30.', icon: 'Zap', unlocked: false, reward: 1000, condition: s => s.level >= 30 },
-    // Novas Conquistas baseadas em recordes
     { id: 'encyclopedia', title: 'Enciclopédia', description: 'Recorde > 50 na Sabedoria.', icon: 'Book', unlocked: false, reward: 100, condition: s => (s.highScores['triv'] || 0) >= 50 },
     { id: 'calculator', title: 'Calculadora', description: 'Recorde > 50 no Cálculo.', icon: 'Calculator', unlocked: false, reward: 100, condition: s => (s.highScores['math'] || 0) >= 50 },
     { id: 'eagle_eye', title: 'Olhos de Águia', description: 'Recorde > 50 no Intruso.', icon: 'Eye', unlocked: false, reward: 100, condition: s => (s.highScores['intr'] || 0) >= 50 },
@@ -159,7 +155,6 @@ interface PendingUnlock {
     type: LockType;
 }
 
-// QUEUE SYSTEM
 type EventType = 'LEVEL_UP' | 'ACHIEVEMENT' | 'STREAK';
 interface GameEvent {
     type: EventType;
@@ -173,6 +168,7 @@ export default function App() {
   const [stats, setStats] = useState<UserStats>(INITIAL_STATS);
   const [activeTutorial, setActiveTutorial] = useState<{title: string, text: string, gameId: string} | null>(null);
   const [victoryData, setVictoryData] = useState<{score: number, gameId: string} | null>(null);
+  const [imgError, setImgError] = useState(false); // To handle broken profile image
   
   const [showAdModal, setShowAdModal] = useState(false);
   const adCallbackRef = useRef<(() => void) | null>(null);
@@ -186,7 +182,6 @@ export default function App() {
   const [pendingUnlock, setPendingUnlock] = useState<PendingUnlock | null>(null);
   const [pendingAdReward, setPendingAdReward] = useState<'NONE' | 'GAME_UNLOCK' | 'COINS' | 'GENERIC'>('NONE');
 
-  // EVENT QUEUE & MODAL STATES
   const [eventQueue, setEventQueue] = useState<GameEvent[]>([]);
   const [unlockedAchievement, setUnlockedAchievement] = useState<Achievement | null>(null);
   const [levelUpData, setLevelUpData] = useState<{level: number, reward: number} | null>(null);
@@ -200,7 +195,6 @@ export default function App() {
     if (saved) {
         try {
             const parsed = JSON.parse(saved);
-            // Default value injections for legacy data
             if (!parsed.leaderboard || !Array.isArray(parsed.leaderboard)) parsed.leaderboard = []; 
             if (!parsed.unlockedAvatars) parsed.unlockedAvatars = ['base'];
             if (!parsed.currentAvatar) parsed.currentAvatar = 'base';
@@ -216,7 +210,6 @@ export default function App() {
             const cleanStats = {...INITIAL_STATS, ...parsed};
             setStats(cleanStats);
 
-            // CORREÇÃO CRÍTICA: Se o leaderboard estiver vazio ou com poucos (legado), reinicializa com muitos
             if (cleanStats.leaderboard.length < 50) {
                 initLeaderboard(cleanStats.coins);
             }
@@ -232,20 +225,14 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem('sabiamente_stats_v8', JSON.stringify(stats));
-    checkAchievements(); // Will queue if any
+    checkAchievements(); 
     setMuted(!stats.soundEnabled);
   }, [stats]);
 
-  // --- QUEUE PROCESSOR ---
   useEffect(() => {
-      // Only process queue if:
-      // 1. We are on HOME screen
-      // 2. Queue is not empty
-      // 3. No other modals are currently showing
       const isModalActive = levelUpData || unlockedAchievement || streakPopupValue || victoryData || pendingUnlock || showAdModal || activeTutorial;
       
       if (currentScreen === Screen.HOME && eventQueue.length > 0 && !isModalActive) {
-          // Add a small delay to make it feel natural
           const t = setTimeout(() => {
               const nextEvent = eventQueue[0];
               const remaining = eventQueue.slice(1);
@@ -268,12 +255,11 @@ export default function App() {
                       playCelebrationSound();
                       break;
               }
-          }, 500); // 0.5s delay
+          }, 500); 
           return () => clearTimeout(t);
       }
   }, [currentScreen, eventQueue, levelUpData, unlockedAchievement, streakPopupValue, victoryData, pendingUnlock, showAdModal, activeTutorial]);
 
-  // --- GLOBAL CLICK SOUND ---
   useEffect(() => {
       const handleGlobalClick = (e: MouseEvent) => {
           const target = e.target as HTMLElement;
@@ -285,7 +271,6 @@ export default function App() {
       return () => window.removeEventListener('click', handleGlobalClick);
   }, []);
 
-  // --- CONNECTIVITY ---
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
@@ -297,7 +282,6 @@ export default function App() {
     };
   }, []);
 
-  // --- FORCED AD LOGIC ---
   const isMenuScreen = (screen: Screen) => {
       return [Screen.HOME, Screen.STORE, Screen.PROFILE, Screen.SETTINGS, Screen.RANKING, Screen.BETTING].includes(screen);
   };
@@ -330,7 +314,6 @@ export default function App() {
       setPendingForcedAd(false);
   };
 
-  // --- LOGIC HELPERS ---
   const syncWithLeaderboard = (s: UserStats): UserStats => {
       if (!s.leaderboard || !Array.isArray(s.leaderboard)) {
           return {
@@ -359,13 +342,11 @@ export default function App() {
       });
   };
 
-  // GENERATE MASSIVE LEADERBOARD
   const initLeaderboard = (userCoins: number) => {
       const entries: LeaderboardEntry[] = [];
       entries.push({ id: 'user', name: 'Você', coins: userCoins, avatar: 'base', isUser: true, streak: 0 });
       
       const getRandomName = () => {
-          // 15% de chance de usar um nome fantasia (apelido)
           if (Math.random() < 0.15) {
               return FANTASY_NAMES[Math.floor(Math.random() * FANTASY_NAMES.length)];
           }
@@ -374,29 +355,11 @@ export default function App() {
           return `${first} ${last}`;
       }
 
-      // Generate 1250 players with distributed scores to place user (likely with < 100 coins) around rank #1000
-      
-      // Tier 1: Elites (Top 50) - 10k to 100k coins
-      for(let i=0; i<50; i++) {
-          entries.push({ id: `bot_elite_${i}`, name: getRandomName(), coins: Math.floor(Math.random() * 90000) + 10000, avatar: 'dragon', isUser: false, streak: Math.floor(Math.random()*200)+50 });
-      }
+      for(let i=0; i<50; i++) entries.push({ id: `bot_elite_${i}`, name: getRandomName(), coins: Math.floor(Math.random() * 90000) + 10000, avatar: 'dragon', isUser: false, streak: Math.floor(Math.random()*200)+50 });
+      for(let i=0; i<300; i++) entries.push({ id: `bot_vet_${i}`, name: getRandomName(), coins: Math.floor(Math.random() * 9000) + 1000, avatar: 'lion', isUser: false, streak: Math.floor(Math.random()*100)+20 });
+      for(let i=0; i<600; i++) entries.push({ id: `bot_reg_${i}`, name: getRandomName(), coins: Math.floor(Math.random() * 900) + 100, avatar: 'star', isUser: false, streak: Math.floor(Math.random()*30)+5 });
+      for(let i=0; i<300; i++) entries.push({ id: `bot_nov_${i}`, name: getRandomName(), coins: Math.floor(Math.random() * 100), avatar: 'base', isUser: false, streak: Math.floor(Math.random()*5) });
 
-      // Tier 2: Veterans (Next 300) - 1k to 10k coins
-      for(let i=0; i<300; i++) {
-          entries.push({ id: `bot_vet_${i}`, name: getRandomName(), coins: Math.floor(Math.random() * 9000) + 1000, avatar: 'lion', isUser: false, streak: Math.floor(Math.random()*100)+20 });
-      }
-
-      // Tier 3: Regulars (Next 600) - 100 to 1k coins
-      for(let i=0; i<600; i++) {
-          entries.push({ id: `bot_reg_${i}`, name: getRandomName(), coins: Math.floor(Math.random() * 900) + 100, avatar: 'star', isUser: false, streak: Math.floor(Math.random()*30)+5 });
-      }
-
-      // Tier 4: Novices (Last ~300) - 0 to 100 coins (User will fight here initially)
-      for(let i=0; i<300; i++) {
-          entries.push({ id: `bot_nov_${i}`, name: getRandomName(), coins: Math.floor(Math.random() * 100), avatar: 'base', isUser: false, streak: Math.floor(Math.random()*5) });
-      }
-
-      // Force update, using functional update to ensure we have latest state if needed, though here we replace leaderboard
       setStats(s => ({...s, leaderboard: entries}));
   };
 
@@ -404,7 +367,6 @@ export default function App() {
       setStatsSynced(prev => {
           const updated = prev.leaderboard.map(entry => {
               if (entry.isUser) return entry;
-              // Small random fluctuation to make the world feel alive
               if (Math.random() > 0.7) {
                   const change = Math.floor(Math.random() * 20) - 5; 
                   return { ...entry, coins: Math.max(0, entry.coins + change) };
@@ -425,7 +387,6 @@ export default function App() {
               updatedList.push(ach.id);
               newUnlock = true;
               coinsToAdd += ach.reward;
-              // QUEUE ACHIEVEMENT
               setEventQueue(prev => [...prev, { type: 'ACHIEVEMENT', data: ach }]);
           }
       });
@@ -458,7 +419,6 @@ export default function App() {
               newLevel += 1;
               newExp = newExp - 100;
               levelUpReward = newLevel * 50;
-              // Add to queue since we are on Home
               setEventQueue(prev => [...prev, { type: 'LEVEL_UP', data: { level: newLevel, reward: levelUpReward } }]);
           } else {
               triggerCentralBurst();
@@ -473,7 +433,6 @@ export default function App() {
               lastWateredDate: today
           }));
           
-          // Trigger Rain Effect
           setIsRaining(true);
           setTimeout(() => setIsRaining(false), 3000);
           
@@ -540,13 +499,19 @@ export default function App() {
       setStats(prev => ({...prev, language: lang}));
   };
 
+  // CORRECT CALENDAR COMPARISON FOR STREAK
   const getCalendarDaysDifference = (lastDateISO: string): number => {
+      if (!lastDateISO) return 999;
       const now = new Date();
       const last = new Date(lastDateISO);
+      
+      // Reset time to midnight for accurate day difference
       const currentCalendarDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const lastCalendarDate = new Date(last.getFullYear(), last.getMonth(), last.getDate());
+      
       const msPerDay = 1000 * 60 * 60 * 24;
-      return Math.floor((currentCalendarDate.getTime() - lastCalendarDate.getTime()) / msPerDay);
+      const diffTime = currentCalendarDate.getTime() - lastCalendarDate.getTime();
+      return Math.floor(diffTime / msPerDay);
   };
 
   const handleDailyChallengeWin = (coinsWon: number) => {
@@ -563,7 +528,7 @@ export default function App() {
   const handleGameComplete = (score: number) => {
       const currentGame = GAMES.find(g => g.screen === currentScreen);
       const gameId = currentGame?.id || 'unknown';
-      setVictoryData({ score, gameId }); // Immediate feedback screen
+      setVictoryData({ score, gameId }); 
       
       const newHighScores = { ...stats.highScores };
       if (score > (newHighScores[gameId] || 0)) {
@@ -582,7 +547,6 @@ export default function App() {
               newExp = newExp - 100;
               levelUpReward = newLevel * 50; 
               newCoins += levelUpReward;
-              // QUEUE LEVEL UP
               setEventQueue(prev => [...prev, { type: 'LEVEL_UP', data: { level: newLevel, reward: levelUpReward } }]);
           }
       }
@@ -593,7 +557,6 @@ export default function App() {
           const daysDiff = getCalendarDaysDifference(stats.lastPlayedDate);
           if (daysDiff === 1) {
               newStreak = stats.streak + 1;
-              // QUEUE STREAK
               setEventQueue(prev => [...prev, { type: 'STREAK', data: newStreak }]);
           } else if (daysDiff > 1) {
               newStreak = 1;
@@ -634,7 +597,6 @@ export default function App() {
   const handleGoHome = () => {
       setVictoryData(null);
       setCurrentScreen(Screen.HOME);
-      // Triggering Home will naturally process the event queue via useEffect
   };
 
   const tryStartGame = (game: Minigame) => {
@@ -686,7 +648,6 @@ export default function App() {
               setStatsSynced(s => ({ ...s, coins: s.coins - item.cost, unlockedThemes: [...s.unlockedThemes, item.value as ThemeId], currentTheme: item.value as ThemeId }));
           } else {
               setStatsSynced(s => ({ ...s, coins: s.coins - item.cost, unlockedAvatars: [...s.unlockedAvatars, item.value as AvatarId], currentAvatar: item.value as AvatarId }));
-              // Celebration for New Avatar
               triggerConfettiCannon();
               playMagicalSound();
           }
@@ -885,8 +846,20 @@ export default function App() {
             {currentScreen === Screen.PROFILE && (
                 <div className="px-6 pb-28 pt-4">
                     <div className="flex flex-col items-center justify-center mb-8 animate-in zoom-in">
-                        {/* Exibe o logo que o usuário adicionou na pasta public */}
-                        <img src="/logo.png" alt="SábiaMente" className="h-32 mb-4 object-contain drop-shadow-md" />
+                        {/* Profile Image with Fallback */}
+                        {!imgError ? (
+                            <img 
+                                src="/logo.png" 
+                                alt="SábiaMente" 
+                                className="h-32 mb-4 object-contain drop-shadow-md"
+                                onError={() => setImgError(true)}
+                            />
+                        ) : (
+                            <div className="h-32 w-32 bg-brand-primary/10 rounded-full flex items-center justify-center mb-4">
+                                <ImageIcon size={64} className="text-brand-primary opacity-50"/>
+                            </div>
+                        )}
+                        
                         <h2 className="text-2xl font-bold opacity-90 text-gray-800">Seu Perfil</h2>
                     </div>
 
@@ -927,6 +900,7 @@ export default function App() {
 
             {currentScreen === Screen.STORE && (
                 <div className="px-6 pb-28 pt-4">
+                    {/* ... store content mostly same ... */}
                     <h2 className="text-2xl font-bold mb-6 opacity-90">Loja</h2>
                     <div className="mb-4">
                          <button onClick={watchAdForCoins} className="w-full bg-gradient-to-r from-yellow-400 to-orange-500 text-white p-4 rounded-2xl shadow-lg flex items-center justify-between font-bold text-lg hover:scale-[1.02] transition-transform">
@@ -1037,7 +1011,7 @@ export default function App() {
                     onExit={handleGoHome} 
                     onRequestAd={requestAd}
                     onClaimDaily={handleDailyClaim}
-                    onWinDaily={handleDailyChallengeWin} // Passing the win handler
+                    onWinDaily={handleDailyChallengeWin}
                 />
             )}
             
@@ -1055,7 +1029,7 @@ export default function App() {
             {currentScreen !== Screen.HOME && currentScreen !== Screen.STORE && currentScreen !== Screen.PROFILE && currentScreen !== Screen.SETTINGS && currentScreen !== Screen.RANKING && currentScreen !== Screen.BETTING && renderGame()}
         </div>
 
-        {/* === BOTTOM NAVIGATION BAR === */}
+        {/* BOTTOM NAV */}
         {isMenuScreen(currentScreen) && (
             <div 
                 className="absolute bottom-0 w-full bg-white/95 backdrop-blur-md border-t border-gray-100 flex justify-around items-center p-3 z-40 shadow-[0_-5px_20px_rgba(0,0,0,0.05)]"
@@ -1087,8 +1061,10 @@ export default function App() {
             </div>
         )}
 
-        {/* ... (rest of modals) */}
-        {/* === GAME UNLOCK MODAL === */}
+        {/* MODALS (Ad, Unlock, Streak, etc.) */}
+        {/* ... (Existing modals preserved but omitted for brevity as they didn't change logic, just structure) ... */}
+        {/* RE-INSERTING KEY MODALS FOR COMPLETENESS IN XML OUTPUT TO AVOID CUTOFFS */}
+        
         {pendingUnlock && (
              <div className="absolute inset-0 z-[70] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md animate-in fade-in">
                  <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl relative">
@@ -1131,7 +1107,6 @@ export default function App() {
              </div>
         )}
 
-        {/* NEW STREAK POPUP */}
         {streakPopupValue !== null && (
             <div className="absolute inset-0 z-[100] flex items-center justify-center p-6 bg-black/70 backdrop-blur-md animate-in fade-in duration-300">
                 <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl relative overflow-hidden animate-in zoom-in spin-in-1 duration-500">

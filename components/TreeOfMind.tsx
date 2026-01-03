@@ -21,14 +21,14 @@ const MOTIVATION = [
 ];
 
 const RainEffect = () => (
-    <div className="absolute inset-0 z-20 overflow-hidden rounded-full pointer-events-none">
-        {[...Array(20)].map((_, i) => (
+    <div className="absolute inset-0 z-50 pointer-events-none rounded-3xl overflow-hidden">
+        {[...Array(30)].map((_, i) => (
             <div
                 key={i}
-                className="absolute bg-blue-400 opacity-70 w-0.5 h-3 rounded-full"
+                className="absolute bg-blue-400 opacity-70 w-0.5 h-4 rounded-full"
                 style={{
                     left: `${Math.random() * 100}%`,
-                    top: -10,
+                    top: -20,
                     animation: `fall ${0.5 + Math.random()}s linear infinite`,
                     animationDelay: `${Math.random()}s`
                 }}
@@ -36,7 +36,7 @@ const RainEffect = () => (
         ))}
         <style>{`
             @keyframes fall {
-                to { transform: translateY(250px); opacity: 0; }
+                to { transform: translateY(300px); opacity: 0; }
             }
         `}</style>
     </div>
@@ -161,10 +161,10 @@ const TreeOfMind: React.FC<TreeOfMindProps> = ({ stats, onWater, canWater, isRai
           {/* Background Glow */}
           <div className="absolute inset-0 bg-gradient-to-t from-green-200/50 to-transparent rounded-full blur-3xl"></div>
           
-          {/* Rain Effect Layer */}
+          {/* Rain Effect Layer - Positioned over the tree container */}
           {isRaining && <RainEffect />}
 
-          <svg width="240" height="240" viewBox="0 0 200 220" className="drop-shadow-2xl z-10 transition-all duration-1000">
+          <svg width="240" height="240" viewBox="0 0 200 220" className="drop-shadow-2xl z-10 transition-all duration-1000 relative">
             {/* Ground */}
             <ellipse cx="100" cy="210" rx="80" ry="10" fill="#8D6E63" opacity="0.8" />
             {renderTreeSvg()}
