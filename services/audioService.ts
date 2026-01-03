@@ -53,29 +53,29 @@ const playNote = (
     osc.stop(startTime + duration + decay + 0.1);
 };
 
-// 1. CLICK SOUND: A soft, wooden "pop" or "bubble" sound
+// 1. CLICK SOUND: A soft "tap" sound (Organic, non-intrusive)
 export const playClickSound = () => {
     if (!audioCtx || !masterGain || isMuted) return;
     if (audioCtx.state === 'suspended') audioCtx.resume();
 
     const t = audioCtx.currentTime;
     
-    // High frequency sine with rapid pitch drop = "Pop" sound
+    // Soft sine wave with gentle pitch drop (Bubble/Tap effect)
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
     
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(800, t);
-    osc.frequency.exponentialRampToValueAtTime(100, t + 0.1);
+    osc.frequency.setValueAtTime(300, t); // Lower pitch start
+    osc.frequency.exponentialRampToValueAtTime(50, t + 0.15); // Slower drop
     
-    gain.gain.setValueAtTime(0.5, t);
-    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.1);
+    gain.gain.setValueAtTime(0.15, t); // Quieter volume
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1); // Quick fade
     
     osc.connect(gain);
     gain.connect(masterGain);
     
     osc.start(t);
-    osc.stop(t + 0.1);
+    osc.stop(t + 0.15);
 };
 
 // 2. SUCCESS SOUND: A Major Arpeggio (Harp/Celesta style)

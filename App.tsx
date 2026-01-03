@@ -184,6 +184,7 @@ export default function App() {
     if (saved) {
         try {
             const parsed = JSON.parse(saved);
+            // Default value injections for legacy data
             if (!parsed.leaderboard || !Array.isArray(parsed.leaderboard)) parsed.leaderboard = []; 
             if (!parsed.unlockedAvatars) parsed.unlockedAvatars = ['base'];
             if (!parsed.currentAvatar) parsed.currentAvatar = 'base';
@@ -197,6 +198,12 @@ export default function App() {
             
             const cleanStats = {...INITIAL_STATS, ...parsed};
             setStats(cleanStats);
+
+            // CORREÇÃO CRÍTICA: Se o leaderboard estiver vazio ou corrompido (apenas usuário ou vazio), reinicializa
+            if (cleanStats.leaderboard.length < 5) {
+                initLeaderboard(cleanStats.coins);
+            }
+
         } catch (e) {
             console.error("Save data corrupted", e);
             initLeaderboard(INITIAL_STATS.coins);
@@ -343,7 +350,8 @@ export default function App() {
           const randomStreak = Math.floor(Math.random() * 78) + 12;
           entries.push({ id: `fake_${i}`, name, coins: variance, avatar: 'base', isUser: false, streak: randomStreak });
       });
-      setStats(s => syncWithLeaderboard({...s, leaderboard: entries}));
+      // Force update, using functional update to ensure we have latest state if needed, though here we replace leaderboard
+      setStats(s => ({...s, leaderboard: entries}));
   };
 
   const refreshRanking = () => {
