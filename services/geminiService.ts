@@ -2,7 +2,8 @@
 import { TriviaQuestion, SequenceTask, IntruderTask, ScrambleTask, ProverbTask, DailyChallengeData } from "../types";
 import { GoogleGenAI, Type } from "@google/genai";
 
-// Inicialização correta do cliente para uso direto no navegador
+// Inicialização direta do cliente API para funcionamento client-side
+// O Vercel injeta process.env.API_KEY automaticamente durante o build
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 const MODEL_NAME = "gemini-3-flash-preview";
 

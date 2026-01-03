@@ -177,6 +177,7 @@ export default function App() {
   const [streakPopupValue, setStreakPopupValue] = useState<number | null>(null);
   
   const [isRatingCheck, setIsRatingCheck] = useState(false);
+  const [isRaining, setIsRaining] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem('sabiamente_stats_v8');
@@ -413,6 +414,11 @@ export default function App() {
               coins: s.coins + levelUpReward,
               lastWateredDate: today
           }));
+          
+          // Trigger Rain Effect
+          setIsRaining(true);
+          setTimeout(() => setIsRaining(false), 3000);
+          
           alert("Jardim regado com sucesso! +15 XP");
       });
   };
@@ -734,7 +740,7 @@ export default function App() {
             {currentScreen === Screen.HOME && (
                 <div className="px-6 space-y-6">
                     <div className="mt-2 relative">
-                        <TreeOfMind stats={stats} onWater={handleWaterGarden} canWater={canWaterToday()} />
+                        <TreeOfMind stats={stats} onWater={handleWaterGarden} canWater={canWaterToday()} isRaining={isRaining} />
                         <div className="absolute top-0 right-0 bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 border border-orange-200 shadow-sm animate-pulse">
                             <Flame size={14} className="fill-orange-500"/>
                             {stats.streak} Dias Seguidos

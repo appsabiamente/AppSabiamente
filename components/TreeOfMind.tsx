@@ -7,6 +7,7 @@ interface TreeOfMindProps {
   stats: UserStats;
   onWater?: () => void;
   canWater?: boolean;
+  isRaining?: boolean;
 }
 
 const MOTIVATION = [
@@ -19,7 +20,29 @@ const MOTIVATION = [
     "Aprender algo novo rejuvenesce a mente."
 ];
 
-const TreeOfMind: React.FC<TreeOfMindProps> = ({ stats, onWater, canWater }) => {
+const RainEffect = () => (
+    <div className="absolute inset-0 z-20 overflow-hidden rounded-full pointer-events-none">
+        {[...Array(20)].map((_, i) => (
+            <div
+                key={i}
+                className="absolute bg-blue-400 opacity-70 w-0.5 h-3 rounded-full"
+                style={{
+                    left: `${Math.random() * 100}%`,
+                    top: -10,
+                    animation: `fall ${0.5 + Math.random()}s linear infinite`,
+                    animationDelay: `${Math.random()}s`
+                }}
+            />
+        ))}
+        <style>{`
+            @keyframes fall {
+                to { transform: translateY(250px); opacity: 0; }
+            }
+        `}</style>
+    </div>
+);
+
+const TreeOfMind: React.FC<TreeOfMindProps> = ({ stats, onWater, canWater, isRaining }) => {
   const level = stats.level;
   const [message, setMessage] = useState(MOTIVATION[0]);
 
@@ -138,6 +161,9 @@ const TreeOfMind: React.FC<TreeOfMindProps> = ({ stats, onWater, canWater }) => 
           {/* Background Glow */}
           <div className="absolute inset-0 bg-gradient-to-t from-green-200/50 to-transparent rounded-full blur-3xl"></div>
           
+          {/* Rain Effect Layer */}
+          {isRaining && <RainEffect />}
+
           <svg width="240" height="240" viewBox="0 0 200 220" className="drop-shadow-2xl z-10 transition-all duration-1000">
             {/* Ground */}
             <ellipse cx="100" cy="210" rx="80" ry="10" fill="#8D6E63" opacity="0.8" />
