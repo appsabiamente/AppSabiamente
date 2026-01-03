@@ -62,7 +62,7 @@ const Ranking: React.FC<RankingProps> = ({ stats, onExit, onRefresh }) => {
 
                         <div className="flex-grow min-w-0">
                             <h4 className={`font-bold truncate leading-tight ${entry.isUser ? 'text-brand-primary text-base' : 'text-gray-700 text-sm'}`}>
-                                {entry.name} {entry.isUser && '(Você)'}
+                                {entry.isUser ? (stats.userName || 'Você') : entry.name}
                             </h4>
                             {entry.streak > 0 && (
                                 <div className="flex items-center gap-1 mt-1">

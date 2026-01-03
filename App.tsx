@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Screen, UserStats, Minigame, ThemeId, AvatarId, StoreItem, Achievement, LeaderboardEntry, Language } from './types';
-import { Video, Star, Brain, Music, Calculator, ClipboardList, Coins, Target, Zap, Activity, Wind, Eye, Square, LayoutGrid, Info, Home, Store, User, RotateCcw, Check, Sparkles, Infinity as InfinityIcon, Lock, Unlock, Grid, Link, Quote, AlertCircle, Type, Grid3X3, Palette, Search, Trophy, Medal, Crown, Ghost, Sun, Gamepad, CheckCircle, XCircle, Box, Copy, TrendingUp, CloudRain, ListOrdered, MousePointerClick, SunMedium, Moon, Cloud, Flower, Settings as SettingsIcon, Users, Clover, ArrowUpCircle, Flame, ThumbsUp, Play, CheckSquare, HeartHandshake, WifiOff, SignalHigh } from 'lucide-react';
+import { Video, Star, Brain, Music, Calculator, ClipboardList, Coins, Target, Zap, Activity, Wind, Eye, Square, LayoutGrid, Info, Home, Store, User, RotateCcw, Check, Sparkles, Infinity as InfinityIcon, Lock, Unlock, Grid, Link, Quote, AlertCircle, Type, Grid3X3, Palette, Search, Trophy, Medal, Crown, Ghost, Sun, Gamepad, CheckCircle, XCircle, Box, Copy, TrendingUp, CloudRain, ListOrdered, MousePointerClick, SunMedium, Moon, Cloud, Flower, Settings as SettingsIcon, Users, Clover, ArrowUpCircle, Flame, ThumbsUp, Play, CheckSquare, HeartHandshake, WifiOff, SignalHigh, Book, Feather, Leaf, Edit3 } from 'lucide-react';
 
 import { setMuted, playClickSound, playFanfare, playCelebrationSound, playMagicalSound } from './services/audioService';
 import { triggerFireworks, triggerConfettiCannon, triggerCentralBurst } from './services/celebrationService';
@@ -39,6 +39,7 @@ const getNextSunday = () => {
 };
 
 const INITIAL_STATS: UserStats = {
+  userName: '',
   coins: 0,
   streak: 0, 
   totalGamesPlayed: 0,
@@ -91,7 +92,13 @@ const ACHIEVEMENTS: Achievement[] = [
     { id: 'brilliant', title: 'Mente Brilhante', description: 'Alcance o Nível 20.', icon: 'Sun', unlocked: false, reward: 500, condition: s => s.level >= 20 },
     { id: 'collector', title: 'Colecionador', description: 'Tenha 3 avatares.', icon: 'User', unlocked: false, reward: 250, condition: s => s.unlockedAvatars.length >= 3 },
     { id: 'millionaire', title: 'Tesouro', description: 'Acumule 2000 moedas.', icon: 'Coins', unlocked: false, reward: 400, condition: s => s.coins >= 2000 },
-    { id: 'unstoppable', title: 'Imparável', description: 'Atinja Nível 30.', icon: 'Zap', unlocked: false, reward: 1000, condition: s => s.level >= 30 }
+    { id: 'unstoppable', title: 'Imparável', description: 'Atinja Nível 30.', icon: 'Zap', unlocked: false, reward: 1000, condition: s => s.level >= 30 },
+    // Novas Conquistas
+    { id: 'encyclopedia', title: 'Enciclopédia', description: 'Recorde > 50 na Sabedoria.', icon: 'Book', unlocked: false, reward: 100, condition: s => (s.highScores['triv'] || 0) >= 50 },
+    { id: 'calculator', title: 'Calculadora', description: 'Recorde > 50 no Cálculo.', icon: 'Calculator', unlocked: false, reward: 100, condition: s => (s.highScores['math'] || 0) >= 50 },
+    { id: 'eagle_eye', title: 'Olhos de Águia', description: 'Recorde > 50 no Intruso.', icon: 'Eye', unlocked: false, reward: 100, condition: s => (s.highScores['intr'] || 0) >= 50 },
+    { id: 'poet', title: 'Poeta', description: 'Recorde > 50 na Corrente.', icon: 'Feather', unlocked: false, reward: 100, condition: s => (s.highScores['chain'] || 0) >= 50 },
+    { id: 'zen_master', title: 'Mestre Zen', description: 'Recorde > 50 no Foco Zen.', icon: 'Leaf', unlocked: false, reward: 100, condition: s => (s.highScores['zen'] || 0) >= 50 },
 ];
 
 const THEMES: Record<ThemeId, string> = {
@@ -195,6 +202,7 @@ export default function App() {
             if (!parsed.dailyChallengesWon) parsed.dailyChallengesWon = 0;
             if (!parsed.dailyChallengeLastCompleted) parsed.dailyChallengeLastCompleted = null;
             if (!parsed.lastWateredDate) parsed.lastWateredDate = null;
+            if (!parsed.userName) parsed.userName = '';
             
             const cleanStats = {...INITIAL_STATS, ...parsed};
             setStats(cleanStats);
@@ -318,17 +326,17 @@ export default function App() {
       if (!s.leaderboard || !Array.isArray(s.leaderboard)) {
           return {
               ...s,
-              leaderboard: [{ id: 'user', name: 'Você', coins: s.coins, avatar: s.currentAvatar, isUser: true, streak: s.streak }]
+              leaderboard: [{ id: 'user', name: s.userName || 'Você', coins: s.coins, avatar: s.currentAvatar, isUser: true, streak: s.streak }]
           };
       }
       const userExists = s.leaderboard.some(e => e.isUser);
       let newLeaderboard = [...s.leaderboard];
       if (!userExists) {
-          newLeaderboard.push({ id: 'user', name: 'Você', coins: s.coins, avatar: s.currentAvatar, isUser: true, streak: s.streak });
+          newLeaderboard.push({ id: 'user', name: s.userName || 'Você', coins: s.coins, avatar: s.currentAvatar, isUser: true, streak: s.streak });
       }
       newLeaderboard = newLeaderboard.map(entry => {
           if (entry.isUser) {
-              return { ...entry, coins: s.coins, streak: s.streak, avatar: s.currentAvatar };
+              return { ...entry, name: s.userName || 'Você', coins: s.coins, streak: s.streak, avatar: s.currentAvatar };
           }
           return entry;
       });
@@ -658,6 +666,11 @@ export default function App() {
       });
   };
 
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const newName = e.target.value;
+      setStatsSynced(s => ({ ...s, userName: newName }));
+  };
+
   const renderGame = () => {
       const props = { onComplete: handleGameComplete, onExit: handleGoHome, onRequestAd: requestAd };
       const getScore = (id: string) => stats.highScores[id] || 0;
@@ -687,7 +700,7 @@ export default function App() {
   };
 
   const renderIcon = (iconName: string, size: number) => {
-    const icons: any = { Link, Eye, Target, Brain, Calculator, Quote, AlertCircle, Type, Grid3X3, Music, Zap, Star, Activity, RotateCcw, Palette, Search, Box, Copy, TrendingUp, CloudRain, ListOrdered, MousePointerClick, Trophy };
+    const icons: any = { Link, Eye, Target, Brain, Calculator, Quote, AlertCircle, Type, Grid3X3, Music, Zap, Star, Activity, RotateCcw, Palette, Search, Box, Copy, TrendingUp, CloudRain, ListOrdered, MousePointerClick, Trophy, Book, Feather, Leaf };
     const Icon = icons[iconName] || Star;
     return <Icon size={size} />;
   }
@@ -724,7 +737,7 @@ export default function App() {
                         {AVATARS[stats.currentAvatar] || <User />}
                     </div>
                     <div>
-                        <h1 className="font-bold text-lg leading-tight opacity-90">Olá, Mestre</h1>
+                        <h1 className="font-bold text-lg leading-tight opacity-90 truncate max-w-[150px]">Olá, {stats.userName || 'Mestre'}</h1>
                         <div className="flex items-center gap-1 text-xs font-bold opacity-60">Nível {stats.level}</div>
                     </div>
                 </div>
@@ -829,21 +842,39 @@ export default function App() {
             
             {currentScreen === Screen.PROFILE && (
                 <div className="px-6 pb-28 pt-4">
-                    <h2 className="text-2xl font-bold mb-6 opacity-90">Suas Conquistas</h2>
+                    <div className="flex flex-col items-center justify-center mb-8 animate-in zoom-in">
+                        <img src="/logo.png" alt="SábiaMente" className="h-32 mb-4 object-contain" onError={(e) => e.currentTarget.style.display = 'none'} />
+                        <h2 className="text-2xl font-bold opacity-90 text-gray-800">Seu Perfil</h2>
+                    </div>
+
+                    <div className="bg-white p-6 rounded-3xl shadow-soft mb-8 border border-gray-100">
+                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1">
+                            <Edit3 size={14}/> Como gostaria de ser chamado?
+                        </label>
+                        <input 
+                            type="text" 
+                            value={stats.userName} 
+                            onChange={handleNameChange} 
+                            placeholder="Digite seu nome aqui"
+                            className="w-full text-xl font-bold text-gray-800 border-b-2 border-gray-200 focus:border-brand-primary outline-none py-2 placeholder:text-gray-300 bg-transparent"
+                        />
+                    </div>
+
+                    <h3 className="text-xl font-bold mb-4 opacity-90 text-gray-800 flex items-center gap-2"><Trophy size={20} className="text-yellow-500"/> Suas Conquistas</h3>
                     <div className="space-y-4">
                         {ACHIEVEMENTS.map(ach => {
                             const isUnlocked = stats.unlockedAchievements.includes(ach.id);
                             return (
-                                <div key={ach.id} className={`p-4 rounded-2xl flex items-center gap-4 border-2 ${isUnlocked ? 'bg-white border-yellow-400 shadow-sm' : 'bg-gray-100 border-transparent opacity-60'}`}>
+                                <div key={ach.id} className={`p-4 rounded-2xl flex items-center gap-4 border-2 transition-all ${isUnlocked ? 'bg-white border-yellow-400 shadow-sm' : 'bg-gray-50 border-gray-100 opacity-60 grayscale'}`}>
                                     <div className={`w-14 h-14 rounded-full flex items-center justify-center ${isUnlocked ? 'bg-yellow-100 text-yellow-600' : 'bg-gray-200 text-gray-400'}`}>
-                                        <Medal size={24} />
+                                        {renderIcon(ach.icon, 24)}
                                     </div>
                                     <div className="flex-grow">
                                         <h4 className="font-bold text-gray-800">{ach.title}</h4>
                                         <p className="text-xs text-gray-500">{ach.description}</p>
                                         <p className="text-xs font-bold text-yellow-600 mt-1 flex items-center gap-1"><Coins size={10}/> Prêmio: {ach.reward}</p>
                                     </div>
-                                    {isUnlocked && <CheckCircle size={20} className="ml-auto text-green-500" />}
+                                    {isUnlocked ? <CheckCircle size={20} className="ml-auto text-green-500" /> : <Lock size={16} className="ml-auto text-gray-300"/>}
                                 </div>
                             )
                         })}
@@ -1013,6 +1044,7 @@ export default function App() {
             </div>
         )}
 
+        {/* ... (rest of modals) */}
         {/* === GAME UNLOCK MODAL === */}
         {pendingUnlock && (
              <div className="absolute inset-0 z-[70] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md animate-in fade-in">
