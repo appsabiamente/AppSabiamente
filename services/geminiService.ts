@@ -2,8 +2,7 @@
 import { TriviaQuestion, SequenceTask, IntruderTask, ScrambleTask, ProverbTask, DailyChallengeData } from "../types";
 import { GoogleGenAI, Type } from "@google/genai";
 
-// Inicialização direta do cliente API para funcionamento client-side.
-// O Vercel injeta process.env.API_KEY automaticamente durante o build se configurado corretamente.
+// Inicialização direta do cliente API para velocidade máxima (Client-side)
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 const MODEL_NAME = "gemini-3-flash-preview";
 
@@ -166,35 +165,39 @@ export const generateDailyWordChallenge = async (): Promise<DailyChallengeData |
     } catch (e) { return null; }
 }
 
+// --- FAST & LENIENT WORD CHAIN ---
+
 export const validateWordChain = async (lastWord: string, userWord: string, category: string): Promise<{isValid: boolean, message: string, nextWord?: string}> => {
+    // Verificações locais imediatas para economizar tempo
     if (!userWord || userWord.length < 2) return { isValid: false, message: "Muito curta." };
     
     const lastLetter = lastWord.slice(-1).toLowerCase();
     const firstLetter = userWord.charAt(0).toLowerCase();
 
+    // Verificação de letra inicial local (Rápido)
     if (lastLetter !== firstLetter) {
         return { isValid: false, message: `Deve começar com a letra '${lastLetter.toUpperCase()}'` };
     }
 
     try {
-        const prompt = `Jogo de palavras (Corrente). Categoria: ${category}.
-        Palavra anterior: "${lastWord}". Palavra do usuário: "${userWord}".
+        // Prompt otimizado para velocidade e tolerância a erros
+        const prompt = `
+        Jogo de palavras. Categoria: "${category}".
+        Anterior: "${lastWord}". Usuário: "${userWord}".
         
-        Regras RIGOROSAS:
-        1. A palavra do usuário existe no dicionário oficial de PORTUGUÊS (PT-BR)?
-        2. A palavra pertence à categoria ${category}?
-        3. A palavra começa com a letra ${lastLetter.toUpperCase()}?
+        Tarefa Rápida:
+        1. Valide se a palavra do usuário pertence à categoria (ignore acentos).
+        2. ACEITE ERROS DE DIGITAÇÃO LEVES (ex: "bannana" ou "abacaxi" com 'ch' devem ser aceitos se foneticamente próximos).
+        3. Se válido, gere "nextWord" (PT-BR) que comece com a última letra da palavra do usuário.
         
-        Se a palavra for em inglês ou outro idioma, considere INVÁLIDO.
-
-        Se válido, retorne uma nova palavra EM PORTUGUÊS dessa mesma categoria que comece com a última letra da palavra do usuário.
-        Se inválido, explique o motivo em português.
-        JSON.`;
+        Retorne JSON puro.
+        `;
         
         const response = await ai.models.generateContent({
             model: MODEL_NAME,
             contents: prompt,
             config: {
+                temperature: 0.3, // Baixa temperatura para resposta mais rápida e direta
                 responseMimeType: "application/json",
                 responseSchema: {
                     type: Type.OBJECT,
@@ -216,6 +219,7 @@ export const validateWordChain = async (lastWord: string, userWord: string, cate
 
     } catch (e) {
         console.error(e);
-        return { isValid: false, message: "Não consegui verificar. Tente novamente." };
+        // Fallback gracioso em caso de erro da API para não travar o jogo
+        return { isValid: false, message: "Tente novamente." };
     }
 }

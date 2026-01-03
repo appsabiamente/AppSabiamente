@@ -82,6 +82,15 @@ const LAST_NAMES = [
     "Vieira", "Barbosa", "Rocha", "Dias", "Nascimento", "Andrade", "Moreira", "Nunes", "Marques"
 ];
 
+// Nomes Fantasia para dar variedade (10-15% dos bots)
+const FANTASY_NAMES = [
+    "Mestre do Saber", "Vovó Ninja", "Cérebro Ativo", "Super Vovô", "Rainha da Paz",
+    "Coruja Sábia", "Águia Dourada", "Pensador", "Memória 1000", "Sábio 2024",
+    "Gênio", "Vencedor", "Anônimo", "Mente Afiada", "Vovó Feliz", "Rei do Xadrez",
+    "Dama de Ferro", "Professor X", "Einstein", "Lobo Guará", "Sr. Mistério",
+    "Campeão", "Estrela Guia", "Sol da Manhã", "Fênix", "Mestre Yoda"
+];
+
 const ACHIEVEMENTS: Achievement[] = [
     { id: 'first_step', title: 'Primeiro Passo', description: 'Complete 1 jogo.', icon: 'Star', unlocked: false, reward: 20, condition: s => s.totalGamesPlayed >= 1 },
     { id: 'rich', title: 'Pote de Ouro', description: 'Acumule 500 moedas.', icon: 'Coins', unlocked: false, reward: 50, condition: s => s.coins >= 500 },
@@ -356,6 +365,10 @@ export default function App() {
       entries.push({ id: 'user', name: 'Você', coins: userCoins, avatar: 'base', isUser: true, streak: 0 });
       
       const getRandomName = () => {
+          // 15% de chance de usar um nome fantasia (apelido)
+          if (Math.random() < 0.15) {
+              return FANTASY_NAMES[Math.floor(Math.random() * FANTASY_NAMES.length)];
+          }
           const first = FIRST_NAMES[Math.floor(Math.random() * FIRST_NAMES.length)];
           const last = LAST_NAMES[Math.floor(Math.random() * LAST_NAMES.length)];
           return `${first} ${last}`;

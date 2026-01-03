@@ -85,6 +85,7 @@ export const WordChainGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
     const [timeLeft, setTimeLeft] = useState(15);
     const timerRef = useRef<any>(null);
     const [paused, setPaused] = useState(false);
+    const inputRef = useRef<HTMLInputElement>(null);
     
     useEffect(() => {
         const cats = ["Frutas", "Animais", "Países", "Cores", "Objetos de Casa"];
@@ -128,7 +129,7 @@ export const WordChainGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
     const targetLetter = lastWord.slice(-1).toUpperCase();
 
     const handleSubmit = async () => {
-        if (loading) return;
+        if (loading || !input.trim()) return;
         setLoading(true);
         clearInterval(timerRef.current);
         
@@ -145,6 +146,9 @@ export const WordChainGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
             setScore(s => s + pts);
             setTimeLeft(15);
             
+            // Foco de volta no input
+            setTimeout(() => inputRef.current?.focus(), 100);
+
             if (newHistory.length > 0 && newHistory.length % 4 === 0) {
                  alert(`Nível ${level} concluído!`);
                  setLevel(l => l + 1);
@@ -155,6 +159,10 @@ export const WordChainGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
             onComplete(0);
         }
         setLoading(false);
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter') handleSubmit();
     };
 
     return (
@@ -183,13 +191,33 @@ export const WordChainGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
                             {w}
                         </div>
                     ))}
-                    {loading && <Loader2 className="animate-spin mx-auto text-blue-400"/>}
+                    {loading && (
+                        <div className="flex justify-end">
+                            <div className="bg-gray-100 text-gray-500 p-3 rounded-2xl rounded-tr-none text-xs font-bold flex items-center gap-2 animate-pulse">
+                                <Loader2 size={12} className="animate-spin"/> Oponente pensando...
+                            </div>
+                        </div>
+                    )}
                 </div>
                 <div className="bg-white p-4 rounded-3xl shadow-soft">
                     <p className="text-center text-gray-500 mb-2 text-sm">Palavra de {category} com <b>{targetLetter}</b>...</p>
                     <div className="flex gap-2">
-                        <input value={input} onChange={e => setInput(e.target.value)} className="flex-grow p-4 rounded-2xl bg-gray-50 border uppercase font-bold" placeholder="..." />
-                        <button onClick={handleSubmit} className="bg-blue-600 text-white p-4 rounded-2xl"><Send /></button>
+                        <input 
+                            ref={inputRef}
+                            value={input} 
+                            onChange={e => setInput(e.target.value)} 
+                            onKeyDown={handleKeyDown}
+                            disabled={loading}
+                            className="flex-grow p-4 rounded-2xl bg-gray-50 border uppercase font-bold disabled:opacity-50" 
+                            placeholder="..." 
+                        />
+                        <button 
+                            onClick={handleSubmit} 
+                            disabled={loading || !input}
+                            className={`bg-blue-600 text-white p-4 rounded-2xl transition-all ${loading ? 'opacity-70 cursor-not-allowed' : 'hover:bg-blue-700 active:scale-95'}`}
+                        >
+                            {loading ? <Loader2 className="animate-spin"/> : <Send />}
+                        </button>
                     </div>
                 </div>
             </div>
