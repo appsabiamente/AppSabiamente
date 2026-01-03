@@ -4,7 +4,7 @@ import { generateIntruderTask, generateScrambleTask } from '../services/geminiSe
 import { IntruderTask, ScrambleTask, WordLinkBoard } from '../types';
 import { playSuccessSound, playFailureSound, playFanfare, playCelebrationSound } from '../services/audioService';
 import { LoadingScreen } from './LoadingScreen';
-import { Loader2, CheckCircle, XCircle, Activity, Wind, Square, Circle, Play, Send, X, AlertCircle, Quote, Type, Zap, Eye, Target, Link, LayoutGrid, Heart, Palette, Search, Grid3X3, MousePointerClick, RotateCcw, Box, Copy, TrendingUp, CloudRain, Coins, MapPin, Trophy, Wallet, Video, Delete, CornerDownLeft, ArrowUp, ArrowDown, RotateCw, Trash2, Repeat, Flame, StopCircle, ArrowRight, ShieldCheck, Flag } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, Activity, Wind, Square, Circle, Play, Send, X, AlertCircle, Quote, Type, Zap, Eye, Target, Link, LayoutGrid, Heart, Palette, Search, Grid3X3, MousePointerClick, RotateCcw, Box, Copy, TrendingUp, CloudRain, Coins, MapPin, Trophy, Wallet, Video, Delete, CornerDownLeft, ArrowUp, ArrowDown, RotateCw, Trash2, Repeat, Flame, StopCircle, ArrowRight, ShieldCheck, Flag, Star } from 'lucide-react';
 
 // Common Props
 interface GameProps {
@@ -22,7 +22,7 @@ const GameHeader: React.FC<{
     color?: string; 
     rightContent?: React.ReactNode; 
     currentCoins?: number; 
-    onCollect?: () => void;
+    onCollect?: () => void; // Optional now
     onGetAdvantage?: () => void;
     advantageLabel?: string;
     highScore?: number;
@@ -77,12 +77,12 @@ const GameHeader: React.FC<{
 
 // === NEW GAMES IMPLEMENTATION ===
 
-// 1. ELO DE PALAVRAS (WORD LINK) - LOCAL DB
+// 1. ELO DE PALAVRAS (WORD LINK) - 150 NÍVEIS
 const WORD_CATEGORIES = [
-    { topic: "Cozinha", correct: ["Panela", "Faca", "Fogão", "Prato", "Colher"], distractors: ["Areia", "Marreta", "Nuvem", "Pneu"] },
+    { topic: "Cozinha", correct: ["Panela", "Faca", "Fogão", "Prato", "Colher"], distractors: ["Areia", "Tijolo", "Nuvem", "Pneu"] },
     { topic: "Praia", correct: ["Areia", "Mar", "Sol", "Onda", "Concha"], distractors: ["Neve", "Teclado", "Motor", "Gravata"] },
     { topic: "Ferramentas", correct: ["Martelo", "Alicate", "Chave", "Serra", "Prego"], distractors: ["Maçã", "Travesseiro", "Rio", "Violão"] },
-    { topic: "Animais", correct: ["Gato", "Cachorro", "Leão", "Elefante", "Pássaro"], distractors: ["Cadeira", "Carro", "Prédio", "Sapato"] },
+    { topic: "Animais", correct: ["Gato", "Cachorro", "Leão", "Elefante", "Tigre"], distractors: ["Cadeira", "Carro", "Prédio", "Sapato"] },
     { topic: "Frutas", correct: ["Banana", "Maçã", "Uva", "Laranja", "Manga"], distractors: ["Batata", "Carne", "Queijo", "Arroz"] },
     { topic: "Cores", correct: ["Azul", "Vermelho", "Verde", "Amarelo", "Roxo"], distractors: ["Longo", "Alto", "Rápido", "Frio"] },
     { topic: "Móveis", correct: ["Cama", "Mesa", "Sofá", "Cadeira", "Armário"], distractors: ["Grama", "Chuva", "Peixe", "Lua"] },
@@ -93,7 +93,128 @@ const WORD_CATEGORIES = [
     { topic: "Banheiro", correct: ["Chuveiro", "Pia", "Toalha", "Sabonete", "Espelho"], distractors: ["Panela", "Garfo", "Sofá", "Jardim"] },
     { topic: "Jardim", correct: ["Flor", "Grama", "Árvore", "Terra", "Regador"], distractors: ["Cama", "Tapete", "Microondas", "Televisão"] },
     { topic: "Céu", correct: ["Nuvem", "Sol", "Lua", "Estrela", "Pássaro"], distractors: ["Peixe", "Pedra", "Carro", "Mesa"] },
-    { topic: "Transporte", correct: ["Carro", "Ônibus", "Trem", "Avião", "Barco"], distractors: ["Casa", "Árvore", "Cachorro", "Livro"] }
+    { topic: "Transporte", correct: ["Carro", "Ônibus", "Trem", "Avião", "Barco"], distractors: ["Casa", "Árvore", "Cachorro", "Livro"] },
+    { topic: "Esportes", correct: ["Futebol", "Vôlei", "Tênis", "Basquete", "Natação"], distractors: ["Piano", "Bolo", "Sofá", "Relógio"] },
+    { topic: "Bebidas", correct: ["Água", "Suco", "Café", "Chá", "Leite"], distractors: ["Pão", "Queijo", "Garfo", "Prato"] },
+    { topic: "Doces", correct: ["Bolo", "Pudim", "Chocolate", "Sorvete", "Bala"], distractors: ["Sal", "Arroz", "Feijão", "Carne"] },
+    { topic: "Profissões", correct: ["Médico", "Professor", "Bombeiro", "Policial", "Advogado"], distractors: ["Cadeira", "Mesa", "Lápis", "Gato"] },
+    { topic: "Sentimentos", correct: ["Amor", "Raiva", "Alegria", "Tristeza", "Medo"], distractors: ["Azul", "Alto", "Doce", "Pedra"] },
+    { topic: "Flores", correct: ["Rosa", "Margarida", "Orquídea", "Lírio", "Girassol"], distractors: ["Grama", "Pinheiro", "Musgo", "Cacto"] },
+    { topic: "Países", correct: ["Brasil", "França", "China", "Japão", "Itália"], distractors: ["Paris", "Roma", "Londres", "Bahia"] },
+    { topic: "Metais", correct: ["Ouro", "Prata", "Ferro", "Cobre", "Alumínio"], distractors: ["Madeira", "Vidro", "Plástico", "Papel"] },
+    { topic: "Insetos", correct: ["Abelha", "Formiga", "Mosca", "Borboleta", "Besouro"], distractors: ["Aranha", "Minhoca", "Caracol", "Sapo"] },
+    { topic: "Mamíferos", correct: ["Vaca", "Cavalo", "Porco", "Ovelha", "Cabra"], distractors: ["Galinha", "Pato", "Cobra", "Sapo"] },
+    { topic: "Aves", correct: ["Pato", "Galinha", "Peru", "Pombo", "Águia"], distractors: ["Morcego", "Abelha", "Mosca", "Rato"] },
+    { topic: "Répteis", correct: ["Cobra", "Jacaré", "Tartaruga", "Lagarto", "Iguana"], distractors: ["Sapo", "Peixe", "Baleia", "Rato"] },
+    { topic: "Peixes", correct: ["Salmão", "Atum", "Sardinha", "Bacalhau", "Tilápia"], distractors: ["Baleia", "Golfinho", "Camarão", "Polvo"] },
+    { topic: "Legumes", correct: ["Cenoura", "Batata", "Beterraba", "Chuchu", "Abóbora"], distractors: ["Maçã", "Uva", "Banana", "Pêra"] },
+    { topic: "Verduras", correct: ["Alface", "Couve", "Rúcula", "Espinafre", "Agrião"], distractors: ["Arroz", "Feijão", "Carne", "Ovo"] },
+    { topic: "Temperos", correct: ["Sal", "Pimenta", "Alho", "Cebola", "Orégano"], distractors: ["Açúcar", "Leite", "Suco", "Água"] },
+    { topic: "Higiene", correct: ["Escova", "Pasta", "Sabonete", "Shampoo", "Fio"], distractors: ["Garfo", "Faca", "Prato", "Copo"] },
+    { topic: "Limpeza", correct: ["Vassoura", "Rodo", "Pano", "Balde", "Sabão"], distractors: ["Cama", "Mesa", "Sofá", "Cadeira"] },
+    { topic: "Escritório", correct: ["Caneta", "Papel", "Grampeador", "Clips", "Pasta"], distractors: ["Martelo", "Serra", "Prego", "Alicate"] },
+    { topic: "Hospital", correct: ["Médico", "Enfermeira", "Maca", "Remédio", "Seringa"], distractors: ["Professor", "Lousa", "Giz", "Livro"] },
+    { topic: "Farmácia", correct: ["Remédio", "Vitamina", "Curativo", "Algodão", "Álcool"], distractors: ["Pão", "Leite", "Carne", "Ovo"] },
+    { topic: "Padaria", correct: ["Pão", "Bolo", "Sonho", "Tortas", "Biscoito"], distractors: ["Arroz", "Feijão", "Macarrão", "Carne"] },
+    { topic: "Açougue", correct: ["Carne", "Frango", "Linguiça", "Costela", "Picanha"], distractors: ["Peixe", "Camarão", "Siri", "Lula"] },
+    { topic: "Supermercado", correct: ["Carrinho", "Caixa", "Prateleira", "Sacola", "Produto"], distractors: ["Cama", "Mesa", "Sofá", "Cadeira"] },
+    { topic: "Banco", correct: ["Dinheiro", "Cheque", "Cartão", "Caixa", "Gerente"], distractors: ["Pão", "Leite", "Carne", "Ovo"] },
+    { topic: "Cinema", correct: ["Filme", "Tela", "Pipoca", "Ingresso", "Cadeira"], distractors: ["Bola", "Rede", "Trave", "Gol"] },
+    { topic: "Circo", correct: ["Palhaço", "Mágico", "Malabarista", "Lona", "Pipoca"], distractors: ["Médico", "Enfermeira", "Maca", "Remédio"] },
+    { topic: "Zoológico", correct: ["Jaula", "Animal", "Guarda", "Ingresso", "Visita"], distractors: ["Cama", "Mesa", "Sofá", "Cadeira"] },
+    { topic: "Parque", correct: ["Banco", "Árvore", "Grama", "Lago", "Pato"], distractors: ["Cama", "Mesa", "Sofá", "Cadeira"] },
+    { topic: "Shopping", correct: ["Loja", "Vitrine", "Escada", "Praça", "Cinema"], distractors: ["Areia", "Mar", "Sol", "Onda"] },
+    { topic: "Festa", correct: ["Bolo", "Vela", "Balão", "Presente", "Música"], distractors: ["Remédio", "Curativo", "Seringa", "Maca"] },
+    { topic: "Casamento", correct: ["Noiva", "Noivo", "Aliança", "Buquê", "Padre"], distractors: ["Bola", "Rede", "Trave", "Gol"] },
+    { topic: "Natal", correct: ["Papai", "Árvore", "Presente", "Ceia", "Noel"], distractors: ["Ovo", "Coelho", "Chocolate", "Toca"] },
+    { topic: "Páscoa", correct: ["Ovo", "Coelho", "Chocolate", "Toca", "Cenoura"], distractors: ["Papai", "Árvore", "Presente", "Ceia"] },
+    { topic: "Carnaval", correct: ["Samba", "Fantasia", "Desfile", "Máscara", "Folia"], distractors: ["Ovo", "Coelho", "Chocolate", "Toca"] },
+    { topic: "Inverno", correct: ["Frio", "Neve", "Casaco", "Luva", "Gorro"], distractors: ["Sol", "Praia", "Calor", "Sorvete"] },
+    { topic: "Verão", correct: ["Sol", "Praia", "Calor", "Sorvete", "Piscina"], distractors: ["Frio", "Neve", "Casaco", "Luva"] },
+    { topic: "Outono", correct: ["Folha", "Vento", "Frio", "Fruta", "Seca"], distractors: ["Sol", "Praia", "Calor", "Sorvete"] },
+    { topic: "Primavera", correct: ["Flor", "Sol", "Chuva", "Verde", "Vida"], distractors: ["Frio", "Neve", "Casaco", "Luva"] },
+    { topic: "Espaço", correct: ["Lua", "Sol", "Estrela", "Planeta", "Foguete"], distractors: ["Carro", "Ônibus", "Trem", "Bicicleta"] },
+    { topic: "Planetas", correct: ["Terra", "Marte", "Júpiter", "Saturno", "Vênus"], distractors: ["Sol", "Lua", "Estrela", "Cometa"] },
+    { topic: "Continentes", correct: ["Ásia", "África", "Europa", "América", "Oceania"], distractors: ["Brasil", "França", "China", "Japão"] },
+    { topic: "Oceanos", correct: ["Atlântico", "Pacífico", "Índico", "Ártico", "Antártico"], distractors: ["Amazonas", "Nilo", "Paraná", "Tietê"] },
+    { topic: "Rios", correct: ["Amazonas", "Nilo", "Paraná", "Tietê", "São Francisco"], distractors: ["Atlântico", "Pacífico", "Índico", "Ártico"] },
+    { topic: "Montanhas", correct: ["Everest", "Andes", "Alpes", "Himalaia", "Rochosas"], distractors: ["Amazonas", "Nilo", "Paraná", "Tietê"] },
+    { topic: "Desertos", correct: ["Saara", "Atacama", "Gobi", "Kalahari", "Arábia"], distractors: ["Amazonas", "Nilo", "Paraná", "Tietê"] },
+    { topic: "Clima", correct: ["Chuva", "Sol", "Vento", "Neve", "Granizo"], distractors: ["Terra", "Marte", "Júpiter", "Saturno"] },
+    { topic: "Pedras", correct: ["Granito", "Mármore", "Quartzo", "Brita", "Seixo"], distractors: ["Ouro", "Prata", "Ferro", "Cobre"] },
+    { topic: "Joias", correct: ["Anel", "Brinco", "Colar", "Pulseira", "Broche"], distractors: ["Camisa", "Calça", "Vestido", "Meia"] },
+    { topic: "Maquiagem", correct: ["Batom", "Rímel", "Pó", "Base", "Sombra"], distractors: ["Anel", "Brinco", "Colar", "Pulseira"] },
+    { topic: "Tecidos", correct: ["Algodão", "Lã", "Seda", "Linho", "Jeans"], distractors: ["Ouro", "Prata", "Ferro", "Cobre"] },
+    { topic: "Materiais", correct: ["Madeira", "Vidro", "Plástico", "Papel", "Metal"], distractors: ["Azul", "Vermelho", "Verde", "Amarelo"] },
+    { topic: "Geometria", correct: ["Círculo", "Quadrado", "Triângulo", "Retângulo", "Losango"], distractors: ["Azul", "Vermelho", "Verde", "Amarelo"] },
+    { topic: "Matemática", correct: ["Soma", "Subtração", "Divisão", "Multiplicação", "Raiz"], distractors: ["Verbo", "Nome", "Artigo", "Sujeito"] },
+    { topic: "Português", correct: ["Verbo", "Nome", "Artigo", "Sujeito", "Adjetivo"], distractors: ["Soma", "Subtração", "Divisão", "Multiplicação"] },
+    { topic: "Ciências", correct: ["Célula", "Átomo", "Molécula", "Gene", "Tecido"], distractors: ["Verbo", "Nome", "Artigo", "Sujeito"] },
+    { topic: "História", correct: ["Guerra", "Rei", "Império", "Colônia", "Século"], distractors: ["Célula", "Átomo", "Molécula", "Gene"] },
+    { topic: "Geografia", correct: ["Mapa", "País", "Cidade", "Estado", "Capital"], distractors: ["Célula", "Átomo", "Molécula", "Gene"] },
+    { topic: "Artes", correct: ["Pintura", "Desenho", "Escultura", "Música", "Dança"], distractors: ["Soma", "Subtração", "Divisão", "Multiplicação"] },
+    { topic: "Religião", correct: ["Igreja", "Templo", "Bíblia", "Reza", "Fé"], distractors: ["Célula", "Átomo", "Molécula", "Gene"] },
+    { topic: "Família", correct: ["Mãe", "Pai", "Filho", "Irmão", "Avô"], distractors: ["Amigo", "Vizinho", "Chefe", "Colega"] },
+    { topic: "Casa", correct: ["Porta", "Janela", "Telhado", "Parede", "Chão"], distractors: ["Rua", "Carro", "Árvore", "Poste"] },
+    { topic: "Quarto", correct: ["Cama", "Travesseiro", "Lençol", "Cobertor", "Guarda-Roupa"], distractors: ["Fogão", "Geladeira", "Pia", "Mesa"] },
+    { topic: "Sala", correct: ["Sofá", "TV", "Tapete", "Estante", "Cortina"], distractors: ["Cama", "Travesseiro", "Lençol", "Cobertor"] },
+    { topic: "Banho", correct: ["Toalha", "Sabonete", "Shampoo", "Condicionador", "Esponja"], distractors: ["Garfo", "Faca", "Prato", "Copo"] },
+    { topic: "Café", correct: ["Xícara", "Bule", "Açúcar", "Colher", "Pires"], distractors: ["Garfo", "Faca", "Prato", "Copo"] },
+    { topic: "Almoço", correct: ["Arroz", "Feijão", "Carne", "Salada", "Suco"], distractors: ["Pão", "Manteiga", "Café", "Leite"] },
+    { topic: "Jantar", correct: ["Sopa", "Pão", "Chá", "Torrada", "Queijo"], distractors: ["Arroz", "Feijão", "Carne", "Salada"] },
+    { topic: "Lanche", correct: ["Sanduíche", "Fruta", "Iogurte", "Biscoito", "Suco"], distractors: ["Arroz", "Feijão", "Carne", "Salada"] },
+    { topic: "Churrasco", correct: ["Carne", "Carvão", "Espeto", "Faca", "Sal"], distractors: ["Bolo", "Vela", "Balão", "Presente"] },
+    { topic: "Piquenique", correct: ["Toalha", "Cesta", "Fruta", "Suco", "Sanduíche"], distractors: ["Bolo", "Vela", "Balão", "Presente"] },
+    { topic: "Acampamento", correct: ["Barraca", "Fogueira", "Lanterna", "Saco", "Mochila"], distractors: ["Cama", "Travesseiro", "Lençol", "Cobertor"] },
+    { topic: "Pescaria", correct: ["Vara", "Isca", "Anzol", "Peixe", "Linha"], distractors: ["Bola", "Rede", "Trave", "Gol"] },
+    { topic: "Futebol", correct: ["Bola", "Campo", "Trave", "Gol", "Juiz"], distractors: ["Vara", "Isca", "Anzol", "Peixe"] },
+    { topic: "Vôlei", correct: ["Rede", "Bola", "Saque", "Manchete", "Ponto"], distractors: ["Gol", "Trave", "Chuteira", "Caneleira"] },
+    { topic: "Basquete", correct: ["Cesta", "Bola", "Tabela", "Garrafão", "Lance"], distractors: ["Gol", "Trave", "Chuteira", "Caneleira"] },
+    { topic: "Tênis", correct: ["Raquete", "Bola", "Rede", "Saque", "Game"], distractors: ["Gol", "Trave", "Chuteira", "Caneleira"] },
+    { topic: "Natação", correct: ["Piscina", "Touca", "Óculos", "Raia", "Nado"], distractors: ["Gol", "Trave", "Chuteira", "Caneleira"] },
+    { topic: "Corrida", correct: ["Pista", "Tênis", "Largada", "Chegada", "Volta"], distractors: ["Gol", "Trave", "Chuteira", "Caneleira"] },
+    { topic: "Ciclismo", correct: ["Bicicleta", "Capacete", "Pedal", "Guidão", "Pneu"], distractors: ["Gol", "Trave", "Chuteira", "Caneleira"] },
+    { topic: "Carro", correct: ["Roda", "Volante", "Motor", "Banco", "Porta"], distractors: ["Asa", "Hélice", "Turbina", "Leme"] },
+    { topic: "Avião", correct: ["Asa", "Turbina", "Cauda", "Cabine", "Trem"], distractors: ["Roda", "Volante", "Motor", "Banco"] },
+    { topic: "Barco", correct: ["Vela", "Leme", "Casco", "Âncora", "Convés"], distractors: ["Roda", "Volante", "Motor", "Banco"] },
+    { topic: "Trem", correct: ["Trilho", "Vagão", "Locomotiva", "Apito", "Estação"], distractors: ["Asa", "Turbina", "Cauda", "Cabine"] },
+    { topic: "Ônibus", correct: ["Passageiro", "Motorista", "Catraca", "Ponto", "Banco"], distractors: ["Asa", "Turbina", "Cauda", "Cabine"] },
+    { topic: "Bicicleta", correct: ["Pedal", "Corrente", "Selim", "Guidão", "Freio"], distractors: ["Volante", "Motor", "Porta", "Vidro"] },
+    { topic: "Moto", correct: ["Capacete", "Guidão", "Roda", "Motor", "Escapamento"], distractors: ["Volante", "Porta", "Vidro", "Cinto"] },
+    { topic: "Computador", correct: ["Mouse", "Teclado", "Tela", "Cabo", "Botão"], distractors: ["Garfo", "Faca", "Prato", "Copo"] },
+    { topic: "Celular", correct: ["Tela", "Bateria", "Chip", "Câmera", "Capa"], distractors: ["Garfo", "Faca", "Prato", "Copo"] },
+    { topic: "Televisão", correct: ["Controle", "Tela", "Canal", "Som", "Imagem"], distractors: ["Garfo", "Faca", "Prato", "Copo"] },
+    { topic: "Rádio", correct: ["Música", "Notícia", "Estação", "Volume", "Antena"], distractors: ["Tela", "Imagem", "Vídeo", "Foto"] },
+    { topic: "Jornal", correct: ["Papel", "Notícia", "Manchete", "Foto", "Texto"], distractors: ["Tela", "Som", "Vídeo", "Botão"] },
+    { topic: "Livro", correct: ["Página", "Capa", "História", "Autor", "Texto"], distractors: ["Tela", "Som", "Vídeo", "Botão"] },
+    { topic: "Revista", correct: ["Foto", "Artigo", "Capa", "Página", "Moda"], distractors: ["Tela", "Som", "Vídeo", "Botão"] },
+    { topic: "Carta", correct: ["Selo", "Envelope", "Papel", "Caneta", "Texto"], distractors: ["Tela", "Som", "Vídeo", "Botão"] },
+    { topic: "Email", correct: ["Arroba", "Assunto", "Texto", "Anexo", "Enviar"], distractors: ["Selo", "Envelope", "Papel", "Caneta"] },
+    { topic: "Internet", correct: ["Site", "Link", "Rede", "Wifi", "Google"], distractors: ["Selo", "Envelope", "Papel", "Caneta"] },
+    { topic: "Rede Social", correct: ["Foto", "Curtida", "Amigo", "Post", "Perfil"], distractors: ["Selo", "Envelope", "Papel", "Caneta"] },
+    { topic: "Música", correct: ["Som", "Ritmo", "Letra", "Nota", "Melodia"], distractors: ["Tinta", "Tela", "Pincel", "Cor"] },
+    { topic: "Pintura", correct: ["Tinta", "Tela", "Pincel", "Cor", "Quadro"], distractors: ["Som", "Ritmo", "Letra", "Nota"] },
+    { topic: "Dança", correct: ["Passo", "Ritmo", "Música", "Corpo", "Movimento"], distractors: ["Tinta", "Tela", "Pincel", "Cor"] },
+    { topic: "Teatro", correct: ["Ator", "Palco", "Peça", "Cena", "Texto"], distractors: ["Tinta", "Tela", "Pincel", "Cor"] },
+    { topic: "Fotografia", correct: ["Câmera", "Lente", "Foto", "Flash", "Imagem"], distractors: ["Som", "Ritmo", "Letra", "Nota"] },
+    { topic: "Costura", correct: ["Agulha", "Linha", "Tecido", "Botão", "Tesoura"], distractors: ["Martelo", "Prego", "Serra", "Chave"] },
+    { topic: "Tricô", correct: ["Lã", "Agulha", "Ponto", "Blusa", "Cachecol"], distractors: ["Martelo", "Prego", "Serra", "Chave"] },
+    { topic: "Bordado", correct: ["Linha", "Agulha", "Bastidor", "Pano", "Desenho"], distractors: ["Martelo", "Prego", "Serra", "Chave"] },
+    { topic: "Crochê", correct: ["Linha", "Agulha", "Ponto", "Toalha", "Bico"], distractors: ["Martelo", "Prego", "Serra", "Chave"] },
+    { topic: "Cerâmica", correct: ["Barro", "Forno", "Vaso", "Mão", "Roda"], distractors: ["Agulha", "Linha", "Tecido", "Botão"] },
+    { topic: "Jardinagem", correct: ["Terra", "Pá", "Planta", "Água", "Vaso"], distractors: ["Agulha", "Linha", "Tecido", "Botão"] },
+    { topic: "Pesca", correct: ["Peixe", "Rio", "Mar", "Barco", "Rede"], distractors: ["Agulha", "Linha", "Tecido", "Botão"] },
+    { topic: "Caça", correct: ["Mato", "Bicho", "Rastro", "Arma", "Cão"], distractors: ["Agulha", "Linha", "Tecido", "Botão"] },
+    { topic: "Caminhada", correct: ["Tênis", "Trilha", "Mato", "Água", "Sol"], distractors: ["Agulha", "Linha", "Tecido", "Botão"] },
+    { topic: "Corrida", correct: ["Suor", "Cansaço", "Velocidade", "Fôlego", "Perna"], distractors: ["Agulha", "Linha", "Tecido", "Botão"] },
+    { topic: "Yoga", correct: ["Tapete", "Respiração", "Pose", "Corpo", "Mente"], distractors: ["Agulha", "Linha", "Tecido", "Botão"] },
+    { topic: "Meditação", correct: ["Silêncio", "Paz", "Mente", "Olhos", "Calma"], distractors: ["Barulho", "Grito", "Festa", "Música"] },
+    { topic: "Leitura", correct: ["Livro", "Óculos", "Luz", "História", "Imaginação"], distractors: ["Barulho", "Grito", "Festa", "Música"] },
+    { topic: "Escrita", correct: ["Caneta", "Papel", "Ideia", "Texto", "Palavra"], distractors: ["Barulho", "Grito", "Festa", "Música"] },
+    { topic: "Estudo", correct: ["Livro", "Caderno", "Lápis", "Atenção", "Prova"], distractors: ["Barulho", "Grito", "Festa", "Música"] },
+    { topic: "Trabalho", correct: ["Chefe", "Salário", "Horário", "Colega", "Tarefa"], distractors: ["Férias", "Praia", "Sol", "Mar"] },
+    { topic: "Férias", correct: ["Viagem", "Praia", "Descanso", "Hotel", "Mala"], distractors: ["Chefe", "Salário", "Horário", "Tarefa"] },
+    { topic: "Viagem", correct: ["Avião", "Mala", "Passaporte", "Foto", "Mapa"], distractors: ["Chefe", "Salário", "Horário", "Tarefa"] }
 ];
 
 export const WordChainGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd, highScore }) => {
@@ -104,19 +225,26 @@ export const WordChainGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
     const [score, setScore] = useState(0);
     const [mistakes, setMistakes] = useState(0);
 
+    // HighScore aqui representa o NÍVEL ATUAL (Índice da categoria)
+    const currentLevel = highScore || 0;
+
     const loadLevel = () => {
+        if (currentLevel >= WORD_CATEGORIES.length) {
+            setLoading(false);
+            return;
+        }
+
         setLoading(true);
         setFoundWords([]);
         setMistakes(0);
         
-        // Pick random category locally
-        const randomCat = WORD_CATEGORIES[Math.floor(Math.random() * WORD_CATEGORIES.length)];
+        // Pega a categoria sequencialmente baseada no nível do usuário
+        const cat = WORD_CATEGORIES[currentLevel];
         
-        // Structure data
         const data: WordLinkBoard = {
-            topic: randomCat.topic,
-            correctWords: randomCat.correct,
-            distractors: randomCat.distractors
+            topic: cat.topic,
+            correctWords: cat.correct,
+            distractors: cat.distractors
         };
 
         setBoard(data);
@@ -128,7 +256,7 @@ export const WordChainGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
 
     useEffect(() => {
         loadLevel();
-    }, []);
+    }, [currentLevel]);
 
     const handleWordTap = (word: string) => {
         if (!board || foundWords.includes(word) || loading) return;
@@ -140,9 +268,10 @@ export const WordChainGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
             
             if (newFound.length === board.correctWords.length) {
                 setTimeout(() => {
-                    alert("Categoria Completa! +20 Pontos");
-                    setScore(s => s + 20);
-                    loadLevel();
+                    playFanfare();
+                    alert(`Categoria ${board.topic} Completa!`);
+                    // Avança para o próximo nível (Score = Nível)
+                    onComplete(currentLevel + 1);
                 }, 500);
             }
         } else {
@@ -150,8 +279,10 @@ export const WordChainGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
             setMistakes(m => {
                 const newM = m + 1;
                 if (newM >= 3) {
-                    alert("Muitos erros! Jogo encerrado.");
-                    onComplete(score);
+                    alert("Muitos erros! Tente novamente.");
+                    // Reinicia o mesmo nível (não avança)
+                    setFoundWords([]);
+                    setMistakes(0);
                 }
                 return newM;
             });
@@ -170,6 +301,22 @@ export const WordChainGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
 
     if (loading) return <LoadingScreen message="Criando Categoria..." />;
 
+    // TELA DE FIM DE JOGO
+    if (currentLevel >= WORD_CATEGORIES.length) {
+        return (
+            <div className="flex flex-col h-full bg-brand-bg items-center justify-center p-8 text-center">
+                <Star size={80} className="text-blue-500 mb-6 animate-spin-slow" />
+                <h1 className="text-3xl font-black text-gray-800 mb-4">Mestre das Palavras!</h1>
+                <p className="text-xl text-gray-600 mb-8">Você conectou todas as 150 categorias.</p>
+                <div className="bg-white p-6 rounded-2xl shadow-soft mb-8 border border-blue-200">
+                    <p className="font-bold text-gray-500 uppercase text-xs mb-2">Conquista</p>
+                    <p className="text-lg font-bold text-gray-800">Mais níveis em breve!</p>
+                </div>
+                <button onClick={onExit} className="w-full bg-brand-primary text-white py-4 rounded-2xl font-bold text-xl shadow-lg">Voltar ao Jardim</button>
+            </div>
+        )
+    }
+
     return (
         <div className="flex flex-col h-full bg-brand-bg">
             <GameHeader 
@@ -177,11 +324,11 @@ export const WordChainGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
                 icon={<Link size={24} className="text-blue-600"/>} 
                 onExit={onExit} 
                 currentCoins={score} 
-                onCollect={() => onComplete(score)}
+                // Removed onCollect logic specifically for this game per instructions
                 onGetAdvantage={handleAdvantage}
                 advantageLabel="Achar Palavra (Vídeo)"
-                highScore={highScore}
-                scoreLabel="Máx Pontos"
+                highScore={currentLevel + 1}
+                scoreLabel="Nível Atual"
                 rightContent={
                     <div className="flex gap-1">
                         {[...Array(3)].map((_, i) => (
@@ -192,7 +339,7 @@ export const WordChainGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
             />
             <div className="flex-grow p-4 flex flex-col">
                 <div className="bg-blue-100 p-6 rounded-3xl text-center shadow-sm mb-6 border border-blue-200">
-                    <p className="text-blue-800 text-sm font-bold uppercase tracking-widest mb-1">Tema</p>
+                    <p className="text-blue-800 text-sm font-bold uppercase tracking-widest mb-1">Nível {currentLevel + 1}</p>
                     <h3 className="text-3xl font-black text-blue-900">{board?.topic}</h3>
                     <p className="text-blue-600 text-xs font-bold mt-2">Encontre {board?.correctWords.length} palavras</p>
                 </div>
