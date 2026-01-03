@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { generateIntruderTask, generateScrambleTask, generateWordLinkBoard } from '../services/geminiService';
+import { generateIntruderTask, generateScrambleTask } from '../services/geminiService';
 import { IntruderTask, ScrambleTask, WordLinkBoard } from '../types';
-import { playSuccessSound, playFailureSound } from '../services/audioService';
+import { playSuccessSound, playFailureSound, playFanfare, playCelebrationSound } from '../services/audioService';
 import { LoadingScreen } from './LoadingScreen';
-import { Loader2, CheckCircle, XCircle, Activity, Wind, Square, Circle, Play, Send, X, AlertCircle, Quote, Type, Zap, Eye, Target, Link, LayoutGrid, Heart, Palette, Search, Grid3X3, MousePointerClick, RotateCcw, Box, Copy, TrendingUp, CloudRain, Coins, MapPin, Trophy, Wallet, Video, Delete, CornerDownLeft, ArrowUp, ArrowDown, RotateCw, Trash2, Repeat, Flame, StopCircle, ArrowRight } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, Activity, Wind, Square, Circle, Play, Send, X, AlertCircle, Quote, Type, Zap, Eye, Target, Link, LayoutGrid, Heart, Palette, Search, Grid3X3, MousePointerClick, RotateCcw, Box, Copy, TrendingUp, CloudRain, Coins, MapPin, Trophy, Wallet, Video, Delete, CornerDownLeft, ArrowUp, ArrowDown, RotateCw, Trash2, Repeat, Flame, StopCircle, ArrowRight, ShieldCheck, Flag } from 'lucide-react';
 
 // Common Props
 interface GameProps {
@@ -75,34 +75,55 @@ const GameHeader: React.FC<{
     </div>
 );
 
-// === REFORMULATED GAMES ===
+// === NEW GAMES IMPLEMENTATION ===
 
-// 100% NEW CONCEPT: "Elo de Palavras" (Word Link)
-// Replaces the old typing Word Chain.
-// User selects words that belong to a specific Category from a grid.
+// 1. ELO DE PALAVRAS (WORD LINK) - LOCAL DB
+const WORD_CATEGORIES = [
+    { topic: "Cozinha", correct: ["Panela", "Faca", "Fogão", "Prato", "Colher"], distractors: ["Areia", "Marreta", "Nuvem", "Pneu"] },
+    { topic: "Praia", correct: ["Areia", "Mar", "Sol", "Onda", "Concha"], distractors: ["Neve", "Teclado", "Motor", "Gravata"] },
+    { topic: "Ferramentas", correct: ["Martelo", "Alicate", "Chave", "Serra", "Prego"], distractors: ["Maçã", "Travesseiro", "Rio", "Violão"] },
+    { topic: "Animais", correct: ["Gato", "Cachorro", "Leão", "Elefante", "Pássaro"], distractors: ["Cadeira", "Carro", "Prédio", "Sapato"] },
+    { topic: "Frutas", correct: ["Banana", "Maçã", "Uva", "Laranja", "Manga"], distractors: ["Batata", "Carne", "Queijo", "Arroz"] },
+    { topic: "Cores", correct: ["Azul", "Vermelho", "Verde", "Amarelo", "Roxo"], distractors: ["Longo", "Alto", "Rápido", "Frio"] },
+    { topic: "Móveis", correct: ["Cama", "Mesa", "Sofá", "Cadeira", "Armário"], distractors: ["Grama", "Chuva", "Peixe", "Lua"] },
+    { topic: "Instrumentos", correct: ["Violão", "Piano", "Flauta", "Tambor", "Violino"], distractors: ["Martelo", "Colher", "Caneta", "Rádio"] },
+    { topic: "Roupas", correct: ["Camisa", "Calça", "Vestido", "Meia", "Casaco"], distractors: ["Janela", "Tijolo", "Flor", "Livro"] },
+    { topic: "Corpo", correct: ["Mão", "Pé", "Cabeça", "Olho", "Boca"], distractors: ["Rua", "Casa", "Carro", "Sol"] },
+    { topic: "Escola", correct: ["Lápis", "Caderno", "Livro", "Professor", "Lousa"], distractors: ["Colher", "Sabonete", "Travesseiro", "Onda"] },
+    { topic: "Banheiro", correct: ["Chuveiro", "Pia", "Toalha", "Sabonete", "Espelho"], distractors: ["Panela", "Garfo", "Sofá", "Jardim"] },
+    { topic: "Jardim", correct: ["Flor", "Grama", "Árvore", "Terra", "Regador"], distractors: ["Cama", "Tapete", "Microondas", "Televisão"] },
+    { topic: "Céu", correct: ["Nuvem", "Sol", "Lua", "Estrela", "Pássaro"], distractors: ["Peixe", "Pedra", "Carro", "Mesa"] },
+    { topic: "Transporte", correct: ["Carro", "Ônibus", "Trem", "Avião", "Barco"], distractors: ["Casa", "Árvore", "Cachorro", "Livro"] }
+];
+
 export const WordChainGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd, highScore }) => {
     const [board, setBoard] = useState<WordLinkBoard | null>(null);
     const [gridWords, setGridWords] = useState<string[]>([]);
-    const [selectedWords, setSelectedWords] = useState<string[]>([]);
     const [foundWords, setFoundWords] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
     const [score, setScore] = useState(0);
     const [mistakes, setMistakes] = useState(0);
 
-    const loadLevel = async () => {
+    const loadLevel = () => {
         setLoading(true);
-        setSelectedWords([]);
         setFoundWords([]);
         setMistakes(0);
         
-        const data = await generateWordLinkBoard();
-        if (data) {
-            setBoard(data);
-            // Mix correct and distractors
-            const all = [...data.correctWords, ...data.distractors].sort(() => Math.random() - 0.5);
-            setGridWords(all);
-        }
-        setLoading(false);
+        // Pick random category locally
+        const randomCat = WORD_CATEGORIES[Math.floor(Math.random() * WORD_CATEGORIES.length)];
+        
+        // Structure data
+        const data: WordLinkBoard = {
+            topic: randomCat.topic,
+            correctWords: randomCat.correct,
+            distractors: randomCat.distractors
+        };
+
+        setBoard(data);
+        const all = [...data.correctWords, ...data.distractors].sort(() => Math.random() - 0.5);
+        setGridWords(all);
+        
+        setTimeout(() => setLoading(false), 500);
     };
 
     useEffect(() => {
@@ -118,7 +139,6 @@ export const WordChainGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
             setFoundWords(newFound);
             
             if (newFound.length === board.correctWords.length) {
-                // Level Complete
                 setTimeout(() => {
                     alert("Categoria Completa! +20 Pontos");
                     setScore(s => s + 20);
@@ -143,7 +163,7 @@ export const WordChainGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
             if (!board) return;
             const missing = board.correctWords.find(w => !foundWords.includes(w));
             if (missing) {
-                handleWordTap(missing); // Auto-find one
+                handleWordTap(missing); 
             }
         });
     };
@@ -205,12 +225,16 @@ export const WordChainGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
     );
 };
 
-// IMPROVED ROTATION GAME: Dynamic Questions
+// 2. ROTAÇÃO (ROTATION) - STREAK LOGIC (RISK & REWARD)
 export const RotationGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd, highScore }) => {
     const [targetSymbol, setTargetSymbol] = useState("F");
     const [baseAngle, setBaseAngle] = useState(0);
     const [rotationTask, setRotationTask] = useState<{label: string, value: number}>({label: '90° Direita', value: 90});
-    const [score, setScore] = useState(0);
+    
+    // State for streak logic
+    const [streak, setStreak] = useState(0);
+    const [sessionScore, setSessionScore] = useState(0);
+    const [showCheckpoint, setShowCheckpoint] = useState(false);
     
     const SYMBOLS = ["F", "R", "L", "G", "P", "J", "➔", "▲", "★", "♣", "7", "4"];
     const TASKS = [
@@ -221,7 +245,7 @@ export const RotationGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
 
     useEffect(() => { 
         nextRound();
-    }, [score]);
+    }, []); // Only on mount, subsequent calls manual
 
     const nextRound = () => {
         setTargetSymbol(SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)]);
@@ -233,12 +257,31 @@ export const RotationGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
         const target = (baseAngle + rotationTask.value) % 360;
         if(guessAngle === target) {
             playSuccessSound();
-            setScore(s => s + 5);
+            const newStreak = streak + 1;
+            setStreak(newStreak);
+            setSessionScore(s => s + 5);
+
+            if (newStreak % 5 === 0) {
+                // Checkpoint reached
+                playCelebrationSound();
+                setShowCheckpoint(true);
+            } else {
+                nextRound();
+            }
         } else {
             playFailureSound();
-            alert(`Errado! A resposta correta era a figura rotacionada em ${rotationTask.label}.`);
-            onComplete(score);
+            alert(`Errado! Você perdeu o acumulado desta sessão.\nA resposta correta era a figura rotacionada em ${rotationTask.label}.`);
+            onComplete(0); // Lose everything if fails before checkpoint decision
         }
+    }
+
+    const handleContinue = () => {
+        setShowCheckpoint(false);
+        nextRound();
+    }
+
+    const handleStop = () => {
+        onComplete(sessionScore);
     }
 
     const handleAdvantage = () => {
@@ -263,19 +306,53 @@ export const RotationGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
     }, [baseAngle, rotationTask]);
 
     return (
-        <div className="flex flex-col h-full bg-brand-bg">
+        <div className="flex flex-col h-full bg-brand-bg relative">
             <GameHeader 
                 title="Rotação" 
                 icon={<RotateCcw size={24} className="text-cyan-500"/>} 
                 onExit={onExit} 
-                currentCoins={score} 
-                onCollect={() => onComplete(score)} 
+                currentCoins={sessionScore} 
+                onCollect={() => {}} // Disabled direct collect, must reach checkpoint
                 onGetAdvantage={handleAdvantage} 
                 advantageLabel="Dica (Vídeo)" 
                 highScore={highScore}
                 scoreLabel="Máx Pontos"
             />
+
+            {showCheckpoint && (
+                <div className="absolute inset-0 bg-black/80 z-50 flex items-center justify-center p-6 animate-in fade-in">
+                    <div className="bg-white rounded-3xl p-8 w-full max-w-sm text-center shadow-2xl">
+                        <Flag size={64} className="mx-auto text-yellow-500 mb-4 animate-bounce" />
+                        <h2 className="text-2xl font-black text-gray-800 mb-2">Checkpoint!</h2>
+                        <p className="text-gray-600 mb-6">Você acertou 5 seguidas! O que deseja fazer?</p>
+                        
+                        <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-200 mb-6">
+                            <p className="text-xs uppercase text-yellow-700 font-bold">Acumulado</p>
+                            <p className="text-3xl font-black text-yellow-600">{sessionScore} Moedas</p>
+                        </div>
+
+                        <div className="space-y-3">
+                            <button onClick={handleStop} className="w-full bg-green-500 text-white py-4 rounded-xl font-bold text-lg hover:bg-green-600 transition-colors shadow-lg flex items-center justify-center gap-2">
+                                <StopCircle /> Parar e Garantir
+                            </button>
+                            <button onClick={handleContinue} className="w-full bg-white text-gray-700 border-2 border-gray-200 py-4 rounded-xl font-bold text-lg hover:bg-gray-50 transition-colors flex items-center justify-center gap-2">
+                                <ArrowRight /> Arriscar (+5)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="flex-grow flex flex-col items-center justify-center gap-6 p-6">
+                
+                {/* Streak Indicator */}
+                <div className="flex gap-2 mb-2">
+                    {[...Array(5)].map((_, i) => (
+                        <div key={i} className={`w-3 h-3 rounded-full transition-all ${i < (streak % 5) || (streak > 0 && streak % 5 === 0) ? 'bg-green-500 scale-110' : 'bg-gray-200'}`} />
+                    ))}
+                </div>
+                <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">Acerte 5 para salvar</p>
+
                 <div className="bg-white p-8 rounded-3xl shadow-soft w-32 h-32 flex items-center justify-center border border-gray-100">
                     <span 
                         className="text-8xl font-black text-cyan-600 transition-transform block" 

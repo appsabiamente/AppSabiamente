@@ -1,7 +1,5 @@
 
 import React, { useState, useEffect } from 'react';
-import { generateFactOrFake } from '../services/geminiService';
-import { FactOrFakeQuestion } from '../types';
 import { Check, X, Coins, Brain, ArrowRight, StopCircle, Video, ThumbsUp, ThumbsDown, HelpCircle } from 'lucide-react';
 import { LoadingScreen } from './LoadingScreen';
 import { playSuccessSound, playFailureSound } from '../services/audioService';
@@ -14,8 +12,37 @@ interface TriviaGameProps {
   onRequestAd: (cb: () => void) => void;
 }
 
+// Banco de dados local para operação offline e rápida
+const FACTS_DB = [
+    { s: "O Sol é uma estrela.", isFact: true, exp: "Sim, é a estrela central do nosso sistema solar." },
+    { s: "A Grande Muralha da China é visível da Lua a olho nu.", isFact: false, exp: "Mito. Ela é muito estreita para ser vista de tão longe." },
+    { s: "O tomate é uma fruta.", isFact: true, exp: "Botanicamente, o tomate possui sementes e cresce da flor da planta." },
+    { s: "Os peixinhos dourados têm memória de apenas 3 segundos.", isFact: false, exp: "Mito. Eles podem lembrar de coisas por meses." },
+    { s: "A água ferve a 100°C ao nível do mar.", isFact: true, exp: "Correto. A altitude altera o ponto de ebulição." },
+    { s: "O avestruz esconde a cabeça na areia quando está com medo.", isFact: false, exp: "Mito. Eles baixam a cabeça para se camuflar, mas não enterram." },
+    { s: "O Brasil é o maior produtor de café do mundo.", isFact: true, exp: "Sim, o Brasil lidera a produção mundial há mais de 150 anos." },
+    { s: "O morcego é um pássaro.", isFact: false, exp: "Mito. Morcegos são os únicos mamíferos capazes de voar." },
+    { s: "O Monte Everest é a montanha mais alta do mundo.", isFact: true, exp: "Com 8.848 metros, é o pico mais alto acima do nível do mar." },
+    { s: "Raios nunca caem duas vezes no mesmo lugar.", isFact: false, exp: "Mito. O Empire State Building é atingido cerca de 25 vezes por ano." },
+    { s: "O mel é o único alimento que não estraga.", isFact: true, exp: "Se bem vedado, o mel pode durar séculos devido à sua química." },
+    { s: "Nós usamos apenas 10% do nosso cérebro.", isFact: false, exp: "Mito. Usamos praticamente todo o cérebro, mesmo dormindo." },
+    { s: "A baleia-azul é o maior animal que já existiu.", isFact: true, exp: "Sim, pode chegar a 30 metros e pesar mais de 150 toneladas." },
+    { s: "O deserto do Saara é o maior do mundo.", isFact: false, exp: "Mito. A Antártida é o maior deserto (deserto polar)." },
+    { s: "O coração do camarão fica na cabeça.", isFact: true, exp: "Verdade. Os órgãos vitais do camarão ficam no cefalotórax." },
+    { s: "Tornados não ocorrem no Brasil.", isFact: false, exp: "Mito. Ocorrem sim, principalmente na região Sul e Sudeste." },
+    { s: "O vidro é feito de areia.", isFact: true, exp: "Sim, a areia de sílica é derretida a altas temperaturas." },
+    { s: "A língua é o músculo mais forte do corpo.", isFact: false, exp: "Mito. O músculo masseter (mandíbula) exerce a maior força." },
+    { s: "A capital da Austrália é Sydney.", isFact: false, exp: "Mito. A capital é Canberra." },
+    { s: "O ser humano tem mais bactérias que células no corpo.", isFact: true, exp: "Estima-se que tenhamos 10x mais bactérias (microbiota)." },
+    { s: "O Japão é conhecido como a Terra do Sol Nascente.", isFact: true, exp: "Sim, Nihon (nome do país) significa origem do sol." },
+    { s: "Napoleão Bonaparte era extremamente baixo.", isFact: false, exp: "Mito. Ele tinha altura média para a época, a confusão veio das unidades de medida." },
+    { s: "Bananas crescem em árvores.", isFact: false, exp: "Mito. A bananeira é uma erva gigante, não uma árvore (não tem tronco lenhoso)." },
+    { s: "O diamante é a substância natural mais dura.", isFact: true, exp: "Sim, na escala de Mohs ele atinge a pontuação máxima de 10." },
+    { s: "Elefantes têm medo de ratos.", isFact: false, exp: "Mito. Eles têm visão ruim e se assustam com movimentos bruscos, não com o rato em si." }
+];
+
 const TriviaGame: React.FC<TriviaGameProps> = ({ onComplete, onExit, userCoins, onRequestAd }) => {
-  const [data, setData] = useState<FactOrFakeQuestion | null>(null);
+  const [currentQuestion, setCurrentQuestion] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [currentScore, setCurrentScore] = useState(0);
   const [answered, setAnswered] = useState(false);
@@ -25,23 +52,24 @@ const TriviaGame: React.FC<TriviaGameProps> = ({ onComplete, onExit, userCoins, 
     loadQuestion();
   }, []);
 
-  const loadQuestion = async () => {
+  const loadQuestion = () => {
     setLoading(true);
     setAnswered(false);
     setLastResult(null);
     
-    const q = await generateFactOrFake();
-    if (q) {
-      setData(q);
-    }
-    setLoading(false);
+    // Pick random question directly from local DB
+    const randomIdx = Math.floor(Math.random() * FACTS_DB.length);
+    setCurrentQuestion(FACTS_DB[randomIdx]);
+    
+    // Simulate tiny delay for UX smoothness
+    setTimeout(() => setLoading(false), 300);
   };
 
   const handleAnswer = (choice: boolean) => {
-    if (answered || !data) return;
+    if (answered || !currentQuestion) return;
     setAnswered(true);
 
-    const correct = choice === data.isFact;
+    const correct = choice === currentQuestion.isFact;
     
     if (correct) {
       playSuccessSound();
@@ -55,7 +83,7 @@ const TriviaGame: React.FC<TriviaGameProps> = ({ onComplete, onExit, userCoins, 
 
   const handleNext = () => {
       if (lastResult === 'WRONG') {
-          onComplete(currentScore); // End game on wrong answer (or can reduce life)
+          onComplete(currentScore); 
       } else {
           loadQuestion();
       }
@@ -63,23 +91,15 @@ const TriviaGame: React.FC<TriviaGameProps> = ({ onComplete, onExit, userCoins, 
 
   const handleAdvantage = () => {
       onRequestAd(() => {
-          // Reveal the answer visually
-          if (data) {
-              alert(`O Oráculo diz: Isso é ${data.isFact ? "VERDADE" : "MITO"}!`);
+          if (currentQuestion) {
+              alert(`O Oráculo diz: Isso é ${currentQuestion.isFact ? "VERDADE" : "MITO"}!`);
           }
       });
   }
 
-  if (loading) return <LoadingScreen message="Consultando os livros..." />;
+  if (loading) return <LoadingScreen message="Abrindo o livro..." />;
 
-  if (!data) {
-    return (
-      <div className="p-8 text-center flex flex-col items-center justify-center h-full">
-        <p className="text-xl text-red-600 mb-4">Erro ao carregar.</p>
-        <button onClick={onExit} className="bg-gray-200 px-6 py-3 rounded-xl text-lg">Voltar</button>
-      </div>
-    );
-  }
+  if (!currentQuestion) return null;
 
   return (
     <div className="flex flex-col h-full bg-brand-bg">
@@ -106,7 +126,7 @@ const TriviaGame: React.FC<TriviaGameProps> = ({ onComplete, onExit, userCoins, 
         <div className="bg-white p-8 rounded-3xl shadow-lg border-2 border-gray-100 text-center relative mb-8">
             <HelpCircle size={40} className="mx-auto text-blue-300 mb-4"/>
             <p className="text-2xl font-bold leading-relaxed text-slate-800">
-                "{data.statement}"
+                "{currentQuestion.s}"
             </p>
             
             {answered && (
@@ -117,7 +137,7 @@ const TriviaGame: React.FC<TriviaGameProps> = ({ onComplete, onExit, userCoins, 
                             {lastResult === 'CORRECT' ? 'ACERTOU!' : 'ERROU!'}
                         </span>
                     </div>
-                    <p className="text-gray-700 font-medium">{data.explanation}</p>
+                    <p className="text-gray-700 font-medium">{currentQuestion.exp}</p>
                 </div>
             )}
         </div>

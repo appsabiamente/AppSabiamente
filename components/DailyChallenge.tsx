@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { UserStats } from '../types';
-import { generateDailyWordChallenge } from '../services/geminiService';
 import { Calendar, Clock, Check, X, Gift, Loader2, Video } from 'lucide-react';
 import { playSuccessSound, playFailureSound } from '../services/audioService';
 
@@ -10,6 +9,49 @@ interface DailyChallengeProps {
     onWin: (coins: number) => void;
     onRequestAd: (cb: () => void) => void;
 }
+
+// Lista estática de palavras de qualidade
+const DAILY_WORDS_DB = [
+    { word: "AURORA", hint: "Claridade que aponta o início da manhã." },
+    { word: "EFÊMERO", hint: "Algo que dura pouco, passageiro." },
+    { word: "SUBLIME", hint: "Elevado, perfeito, grandioso." },
+    { word: "QUIMERA", hint: "Um sonho impossível, fantasia." },
+    { word: "DÁDIVA", hint: "Um presente, uma benção." },
+    { word: "ALTRUÍSMO", hint: "Amor ao próximo, ausência de egoísmo." },
+    { word: "RESILIÊNCIA", hint: "Capacidade de se recuperar de dificuldades." },
+    { word: "LÚDICO", hint: "Relacionado a jogos e brincadeiras." },
+    { word: "MÉTRICA", hint: "Medida, padrão, verso." },
+    { word: "OÁSIS", hint: "Lugar fértil no deserto, refúgio." },
+    { word: "ZÊNITE", hint: "O ponto mais alto do céu." },
+    { word: "VIGOR", hint: "Força física, energia." },
+    { word: "JÚBILO", hint: "Grande alegria, contentamento." },
+    { word: "CANÇÃO", hint: "Composição musical com letra." },
+    { word: "POESIA", hint: "Arte de escrever em versos." },
+    { word: "AMIZADE", hint: "Sentimento de grande afeição por alguém." },
+    { word: "SABEDORIA", hint: "Qualidade de quem tem muito conhecimento." },
+    { word: "HONESTIDADE", hint: "Qualidade de ser verdadeiro." },
+    { word: "CORAGEM", hint: "Bravura diante do perigo." },
+    { word: "GRATIDÃO", hint: "Ato de reconhecer um benefício." },
+    { word: "HARMONIA", hint: "Equilíbrio, paz, concordância." },
+    { word: "ÍMPETO", hint: "Impulso repentino, movimento forte." },
+    { word: "LEGADO", hint: "O que é deixado para as gerações futuras." },
+    { word: "MISTÉRIO", hint: "Algo desconhecido ou enigmático." },
+    { word: "NOSTALGIA", hint: "Saudade de algo do passado." },
+    { word: "OTIMISMO", hint: "Disposição para ver o lado bom." },
+    { word: "PLENITUDE", hint: "Estado de ser completo, inteiro." },
+    { word: "REFÚGIO", hint: "Lugar seguro, abrigo." },
+    { word: "SINTONIA", hint: "Estado de acordo ou harmonia." },
+    { word: "TERNURA", hint: "Afeto suave, carinho." },
+    { word: "UTOPIA", hint: "Lugar ou estado ideal imaginário." },
+    { word: "VIRTUDE", hint: "Qualidade moral positiva." },
+    { word: "ÊXITO", hint: "Resultado feliz, sucesso." },
+    { word: "CÂNDIDO", hint: "Puro, inocente, ingênuo." },
+    { word: "DENODO", hint: "Coragem, valentia, ousadia." },
+    { word: "FUGAZ", hint: "Que passa rápido, veloz." },
+    { word: "GARBO", hint: "Elegância, porte, distinção." },
+    { word: "ÍGNEO", hint: "Relativo ao fogo." },
+    { word: "JOCOSO", hint: "Que tem graça, divertido." }
+];
 
 const DailyChallenge: React.FC<DailyChallengeProps> = ({ stats, onWin, onRequestAd }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -30,7 +72,6 @@ const DailyChallenge: React.FC<DailyChallengeProps> = ({ stats, onWin, onRequest
             setCompleted(isDone);
 
             if (isDone) {
-                // Calculate time to midnight
                 const now = new Date();
                 const midnight = new Date();
                 midnight.setHours(24, 0, 0, 0);
@@ -43,21 +84,32 @@ const DailyChallenge: React.FC<DailyChallengeProps> = ({ stats, onWin, onRequest
         };
 
         checkStatus();
-        const interval = setInterval(checkStatus, 60000); // Check every minute
+        const interval = setInterval(checkStatus, 60000); 
         return () => clearInterval(interval);
     }, [stats.dailyChallengeLastCompleted]);
 
-    const handleOpen = async () => {
+    const getTodaysWord = () => {
+        // Create a unique index based on the date to ensure consistency for all users
+        const now = new Date();
+        const start = new Date(now.getFullYear(), 0, 0);
+        const diff = (now.getTime() - start.getTime()) + ((start.getTimezoneOffset() - now.getTimezoneOffset()) * 60 * 1000);
+        const dayOfYear = Math.floor(diff / (1000 * 60 * 60 * 24));
+        
+        // Use modulo to loop through the array
+        const index = dayOfYear % DAILY_WORDS_DB.length;
+        return DAILY_WORDS_DB[index];
+    }
+
+    const handleOpen = () => {
         setIsOpen(true);
         if (!wordData) {
             setLoading(true);
-            const data = await generateDailyWordChallenge();
-            if (data) {
-                // Normalize word
-                data.word = data.word.trim().toUpperCase();
+            // Simulate loading for effect
+            setTimeout(() => {
+                const data = getTodaysWord();
                 setWordData(data);
-            }
-            setLoading(false);
+                setLoading(false);
+            }, 500);
         }
     };
 
@@ -84,14 +136,12 @@ const DailyChallenge: React.FC<DailyChallengeProps> = ({ stats, onWin, onRequest
         onRequestAd(() => {
             if (!wordData) return;
             
-            // Logic executed AFTER ad closes
             setWordData((currentWordData) => {
                 if (!currentWordData) return null;
                 
                 const targetWord = currentWordData.word.toUpperCase();
                 
                 setRevealedIndices((currentIndices) => {
-                    // Find indices not yet revealed
                     const availableIndices: number[] = [];
                     for (let i = 0; i < targetWord.length; i++) {
                         if (!currentIndices.includes(i)) {
@@ -101,7 +151,6 @@ const DailyChallenge: React.FC<DailyChallengeProps> = ({ stats, onWin, onRequest
 
                     if (availableIndices.length > 0) {
                         const randomIdx = availableIndices[Math.floor(Math.random() * availableIndices.length)];
-                        // Add letter to revealed list
                         return [...currentIndices, randomIdx];
                     } else {
                         return currentIndices;
@@ -161,7 +210,7 @@ const DailyChallenge: React.FC<DailyChallengeProps> = ({ stats, onWin, onRequest
                         {loading || !wordData ? (
                             <div className="py-12 flex flex-col items-center justify-center text-gray-400">
                                 <Loader2 className="animate-spin mb-2" size={32} />
-                                <p>Consultando o Sábio...</p>
+                                <p>Carregando...</p>
                             </div>
                         ) : (
                             <div className="space-y-6">
