@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { generateIntruderTask, generateProverbTask, generateScrambleTask, validateWordChain } from '../services/geminiService';
 import { IntruderTask, ProverbTask, ScrambleTask } from '../types';
@@ -24,7 +25,8 @@ const GameHeader: React.FC<{
     onCollect?: () => void;
     onGetAdvantage?: () => void;
     advantageLabel?: string;
-}> = ({ title, icon, onExit, color = "text-gray-600", rightContent, currentCoins = 0, onCollect, onGetAdvantage, advantageLabel = "Ajuda (Vídeo)" }) => (
+    highScore?: number;
+}> = ({ title, icon, onExit, color = "text-gray-600", rightContent, currentCoins = 0, onCollect, onGetAdvantage, advantageLabel = "Ajuda (Vídeo)", highScore }) => (
     <div className="flex flex-col p-4 bg-white shadow-sm rounded-b-3xl z-10 mb-4 gap-4">
         {/* Top Row: Title & Exit */}
         <div className="flex justify-between items-center w-full">
@@ -34,7 +36,10 @@ const GameHeader: React.FC<{
                 </div>
                 <div>
                     <h2 className="text-xl font-bold text-gray-800 leading-none">{title}</h2>
-                    {currentCoins > 0 && <span className="text-xs font-bold text-yellow-600 flex items-center gap-1 mt-1"><Coins size={12}/> +{currentCoins} moedas</span>}
+                    <div className="flex flex-col">
+                        {currentCoins > 0 && <span className="text-xs font-bold text-yellow-600 flex items-center gap-1 mt-1"><Coins size={12}/> +{currentCoins}</span>}
+                        {highScore && highScore > 0 && <span className="text-[10px] text-gray-400 font-bold flex items-center gap-1"><Trophy size={10}/> Max: {highScore}</span>}
+                    </div>
                 </div>
             </div>
             
@@ -73,14 +78,14 @@ const GameHeader: React.FC<{
 
 // === INFINITE GAMES ===
 
-export const WordChainGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd }) => {
+export const WordChainGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd, highScore }) => {
     const [history, setHistory] = useState<string[]>([]); 
     const [input, setInput] = useState("");
     const [loading, setLoading] = useState(false);
     const [score, setScore] = useState(0);
     const [category, setCategory] = useState("Frutas");
     const [level, setLevel] = useState(1);
-    const [timeLeft, setTimeLeft] = useState(30); // AUMENTADO PARA 30s
+    const [timeLeft, setTimeLeft] = useState(15); // REDUCED TO 15s
     const timerRef = useRef<any>(null);
     const [paused, setPaused] = useState(false);
     
@@ -92,7 +97,7 @@ export const WordChainGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
             "Frutas": "ABACATE", "Animais": "GATO", "Países": "BRASIL", "Cores": "AZUL", "Objetos de Casa": "CADEIRA"
         };
         setHistory([starters[randCat]]);
-        setTimeLeft(30);
+        setTimeLeft(15);
     }, [level]);
 
     useEffect(() => {
@@ -141,7 +146,7 @@ export const WordChainGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
             setInput("");
             const pts = 5 + (level * 2);
             setScore(s => s + pts);
-            setTimeLeft(30); // Resetar para 30s
+            setTimeLeft(15); // Resetar para 15s
             
             if (newHistory.length > 0 && newHistory.length % 4 === 0) {
                  alert(`Nível ${level} concluído! Dificuldade aumentando...`);
@@ -165,6 +170,7 @@ export const WordChainGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
                 onCollect={() => onComplete(score)}
                 onGetAdvantage={handleAdvantage}
                 advantageLabel="+15s (Vídeo)"
+                highScore={highScore}
                 rightContent={
                 <div className={`font-bold text-lg px-3 py-1 rounded ${timeLeft < 5 ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-blue-100 text-blue-800'}`}>
                     {timeLeft}s
@@ -194,14 +200,15 @@ export const WordChainGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
     );
 };
 
-export const ZenFocusGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd }) => {
+export const ZenFocusGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd, highScore }) => {
     const [items, setItems] = useState<{id: number, type: 'good'|'bad', x: number, y: number}[]>([]);
     const [score, setScore] = useState(0);
     const [lives, setLives] = useState(3);
     const [gameOver, setGameOver] = useState(false);
     const reqRef = useRef<number>();
-    // VELOCIDADE REDUZIDA: Base diminuída e fator de crescimento suavizado
-    const speedMultiplier = 0.8 + (score / 200); 
+    
+    // INCREASED DIFFICULTY: Faster speed multiplier formula
+    const speedMultiplier = 1 + (score / 100); 
 
     useEffect(() => {
         if(gameOver) return;
@@ -212,11 +219,12 @@ export const ZenFocusGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
                 x: Math.random() * 80 + 10,
                 y: 100
             }]);
-        }, 1200 / speedMultiplier); // Mais tempo entre spawns
+        }, 1000 / speedMultiplier); // Faster spawns
 
         const loop = () => {
             setItems(prev => {
-                const next = prev.map(i => ({...i, y: i.y - (0.4 * speedMultiplier)})); // Velocidade de queda reduzida
+                // INCREASED FALL SPEED
+                const next = prev.map(i => ({...i, y: i.y - (0.6 * speedMultiplier)})); 
                 next.forEach(i => {
                     if (i.y < -10 && i.type === 'good') {
                         playFailureSound(0);
@@ -224,7 +232,7 @@ export const ZenFocusGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
                             if (l <= 1) { 
                                 setGameOver(true); 
                                 const consolation = Math.floor(score / 2);
-                                alert(`Você perdeu! Mas garantiu ${consolation} moedas.`);
+                                alert(`Você perdeu! Pontuação: ${score}.\nVocê garantiu ${consolation} moedas.`);
                                 onComplete(consolation); 
                                 return 0; 
                             } 
@@ -253,7 +261,7 @@ export const ZenFocusGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
                 if (l <= 1) { 
                     setGameOver(true); 
                     const consolation = Math.floor(score / 2);
-                    alert(`Você perdeu! Mas garantiu ${consolation} moedas.`);
+                    alert(`Você perdeu! Pontuação: ${score}.\nVocê garantiu ${consolation} moedas.`);
                     onComplete(consolation); 
                     return 0; 
                 } 
@@ -282,6 +290,7 @@ export const ZenFocusGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
                 onCollect={() => onComplete(score)}
                 onGetAdvantage={handleAdvantage}
                 advantageLabel="Vida Extra (Vídeo)"
+                highScore={highScore}
                 rightContent={<div className="flex gap-1 text-red-500">{[...Array(lives)].map((_,i)=><Heart key={i} size={20} fill="currentColor"/>)}</div>} 
             />
             <div className="flex-grow relative cursor-crosshair z-0">
@@ -307,7 +316,6 @@ export const SumTargetGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
      const [timeLeft, setTimeLeft] = useState(15);
      const [score, setScore] = useState(0);
      const [paused, setPaused] = useState(false);
-     // NOVO: Estado para controlar o modal de vitória
      const [showVictory, setShowVictory] = useState(false);
  
      useEffect(() => { resetRound(); }, []);
@@ -525,10 +533,10 @@ export const PatternGame: React.FC<GameProps> = ({ onComplete, onExit, highScore
                 onCollect={() => onComplete(score)}
                 onGetAdvantage={handleAdvantage}
                 advantageLabel="Ver Padrão (Vídeo)"
+                highScore={highScore}
                 rightContent={
                     <div className="flex flex-col items-end">
                         <span className="font-bold text-red-500">{showing ? 'Memorize' : `${timeLeft}s`}</span>
-                        {highScore && highScore > 0 && <span className="text-[10px] text-gray-400 flex items-center gap-1"><Trophy size={10}/> {highScore}</span>}
                     </div>
                 }
             />
@@ -555,6 +563,7 @@ export const PatternGame: React.FC<GameProps> = ({ onComplete, onExit, highScore
 export const EstimateGame: React.FC<GameProps> = ({ onComplete, onExit, highScore, onRequestAd }) => {
     const [dots, setDots] = useState(0);
     const [showDots, setShowDots] = useState(true);
+    const [canGuess, setCanGuess] = useState(false); // New state for delay
     const [score, setScore] = useState(0);
     const [round, setRound] = useState(0);
     const [timeLeft, setTimeLeft] = useState(10);
@@ -565,12 +574,16 @@ export const EstimateGame: React.FC<GameProps> = ({ onComplete, onExit, highScor
         const count = Math.floor(Math.random() * 20) + 5;
         setDots(count);
         setShowDots(true);
+        setCanGuess(false); // Reset guess state
         const time = Math.max(3, 10 - Math.floor(round / 2));
         setMaxTime(time);
         setTimeLeft(time);
 
-        // DELAY REDUZIDO: De 2000 para 1000
-        const t = setTimeout(() => setShowDots(false), 1000); 
+        const t = setTimeout(() => {
+            setShowDots(false);
+            // ADDED 1s DELAY BEFORE BUTTONS APPEAR
+            setTimeout(() => setCanGuess(true), 1000); 
+        }, 1000); 
         return () => clearTimeout(t);
     }, [round]);
 
@@ -595,10 +608,14 @@ export const EstimateGame: React.FC<GameProps> = ({ onComplete, onExit, highScor
     const handleAdvantage = () => {
         setPaused(true);
         onRequestAd(() => {
-            setShowDots(true); // Show again
+            setShowDots(true); 
+            setCanGuess(false);
             setTimeout(() => {
                 setShowDots(false);
-                setPaused(false);
+                setTimeout(() => {
+                    setCanGuess(true);
+                    setPaused(false);
+                }, 1000);
             }, 1500);
         });
     }
@@ -627,10 +644,10 @@ export const EstimateGame: React.FC<GameProps> = ({ onComplete, onExit, highScor
                 onCollect={() => onComplete(score)}
                 onGetAdvantage={handleAdvantage}
                 advantageLabel="Ver Bolinhas (Vídeo)"
+                highScore={highScore}
                 rightContent={
                     <div className="flex flex-col items-end">
                         <span className="font-bold text-red-500">{!showDots && `${timeLeft}s`}</span>
-                        {highScore && highScore > 0 && <span className="text-[10px] text-gray-400 flex items-center gap-1"><Trophy size={10}/> {highScore}</span>}
                     </div>
                 }
             />
@@ -638,8 +655,8 @@ export const EstimateGame: React.FC<GameProps> = ({ onComplete, onExit, highScor
                 <div className="bg-white p-8 rounded-3xl w-72 h-72 flex flex-wrap gap-3 content-center justify-center shadow-soft mb-8 overflow-hidden">
                     {showDots ? [...Array(dots)].map((_,i) => <div key={i} className="w-5 h-5 bg-orange-400 rounded-full animate-bounce"></div>) : <div className="text-6xl font-bold text-gray-300">?</div>}
                 </div>
-                {!showDots && (
-                    <div className="flex gap-4">
+                {!showDots && canGuess && (
+                    <div className="flex gap-4 animate-in fade-in slide-in-from-bottom-4">
                         {options.map((opt, i) => (
                              <button key={i} onClick={() => handleGuess(opt)} className="bg-white px-8 py-5 rounded-2xl font-bold shadow-md text-xl hover:scale-105 transition-transform">{opt}</button>
                         ))}
@@ -792,10 +809,10 @@ export const ColorMatchGame: React.FC<GameProps> = ({ onComplete, onExit, highSc
                 onCollect={() => onComplete(score)}
                 onGetAdvantage={handleAdvantage}
                 advantageLabel="+15s (Vídeo)"
+                highScore={highScore}
                 rightContent={
                     <div className="flex flex-col items-end">
                         <span className="font-mono text-red-500 font-bold text-lg">{timeLeft}s</span>
-                        {highScore && highScore > 0 && <span className="text-[10px] text-yellow-600 font-bold flex items-center gap-1"><Trophy size={10}/> Recorde: {highScore}</span>}
                     </div>
                 } 
             />
@@ -891,10 +908,10 @@ export const HiddenObjectGame: React.FC<GameProps> = ({ onComplete, onExit, high
                 onCollect={() => onComplete(score)}
                 onGetAdvantage={handleAdvantage}
                 advantageLabel="+15s & Dica"
+                highScore={highScore}
                 rightContent={
                     <div className="flex flex-col items-end">
                         <span className="font-bold text-red-500">{timeLeft}s</span>
-                        {highScore && highScore > 0 && <span className="text-[10px] text-yellow-600 font-bold flex items-center gap-1"><Trophy size={10}/> {highScore}</span>}
                     </div>
                 }
             />
@@ -1131,10 +1148,10 @@ export const MovingHuntGame: React.FC<GameProps> = ({ onComplete, onExit, highSc
                 onCollect={() => onComplete(score)}
                 onGetAdvantage={handleAdvantage}
                 advantageLabel="+10s (Vídeo)"
+                highScore={highScore}
                 rightContent={
                     <div className="flex flex-col items-end">
                         <span className="font-bold text-red-500">{timeLeft}s</span>
-                        {highScore && highScore > 0 && <span className="text-[10px] text-gray-400 flex items-center gap-1"><Trophy size={10}/> Recorde: {highScore}</span>}
                     </div>
                 } 
             />
@@ -1235,9 +1252,7 @@ export const CardGame: React.FC<GameProps> = ({ onComplete, onExit, highScore, o
                 onCollect={() => onComplete(score)}
                 onGetAdvantage={handleAdvantage}
                 advantageLabel="Ver Dica (Vídeo)"
-                rightContent={
-                    highScore && highScore > 0 ? <span className="text-[10px] text-yellow-300 font-bold flex items-center gap-1"><Trophy size={10}/> Recorde: {highScore}</span> : undefined
-                }
+                highScore={highScore}
              />
              <div className="flex-grow flex flex-col items-center justify-center">
                 
@@ -1273,7 +1288,7 @@ export const CardGame: React.FC<GameProps> = ({ onComplete, onExit, highScore, o
 }
 
 // Updated Standard Games with LoadingScreen
-export const IntruderGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd }) => { 
+export const IntruderGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd, highScore }) => { 
     const [task, setTask] = useState<IntruderTask|null>(null); 
     useEffect(()=>{generateIntruderTask().then(setTask)},[]); 
     
@@ -1293,12 +1308,13 @@ export const IntruderGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
                 onExit={onExit} 
                 onGetAdvantage={handleAdvantage}
                 advantageLabel="Ver Dica (Vídeo)"
+                highScore={highScore}
             />
             <div className="p-6 flex flex-col gap-4">
                 {task.items.map(i=> (
                     <button key={i} onClick={()=>{
                         if(i===task.intruder){ playSuccessSound(); onComplete(5); }
-                        else { playFailureSound(0); alert("Errado"); onComplete(0); } // LOSE ALL
+                        else { playFailureSound(0); alert(`Errado! O intruso era: ${task.intruder}\nMotivo: ${task.reason}`); onComplete(0); } // LOSE ALL
                     }} className="p-4 bg-white shadow-sm rounded-xl font-bold hover:bg-gray-50">{i}</button>
                 ))}
             </div>
@@ -1306,7 +1322,7 @@ export const IntruderGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
     )
 }
 
-export const ProverbGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd }) => { 
+export const ProverbGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd, highScore }) => { 
     const [task, setTask] = useState<ProverbTask|null>(null); 
     useEffect(()=>{generateProverbTask().then(setTask)},[]); 
     if(!task) return <LoadingScreen />; 
@@ -1325,13 +1341,14 @@ export const ProverbGame: React.FC<GameProps> = ({ onComplete, onExit, onRequest
                 onExit={onExit} 
                 onGetAdvantage={handleAdvantage}
                 advantageLabel="Ver Dica (Vídeo)"
+                highScore={highScore}
             />
             <div className="p-6">
                 <p className="text-xl italic mb-6">"{task.part1}..."</p>
                 {task.options.map(o=>(
                     <button key={o} onClick={()=>{
                         if(o===task.part2){ playSuccessSound(); onComplete(5); }
-                        else { playFailureSound(0); alert("Errado"); onComplete(0); } // LOSE ALL
+                        else { playFailureSound(0); alert(`Errado! A resposta era:\n"${task.part2}"`); onComplete(0); } // LOSE ALL
                     }} className="w-full p-4 mb-2 bg-white shadow-sm rounded-xl hover:bg-gray-50">{o}</button>
                 ))}
             </div>
@@ -1339,7 +1356,7 @@ export const ProverbGame: React.FC<GameProps> = ({ onComplete, onExit, onRequest
     )
 }
 
-export const ScrambleGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd }) => { 
+export const ScrambleGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd, highScore }) => { 
     const [task, setTask] = useState<ScrambleTask|null>(null); 
     const[v,sV]=useState(""); 
     useEffect(()=>{generateScrambleTask().then(setTask)},[]); 
@@ -1359,13 +1376,14 @@ export const ScrambleGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
                 onExit={onExit} 
                 onGetAdvantage={handleAdvantage}
                 advantageLabel="Ver Dica (Vídeo)"
+                highScore={highScore}
             />
             <div className="p-6 text-center">
                 <p className="text-3xl font-mono mb-6">{task.scrambled}</p>
                 <input value={v} onChange={e=>sV(e.target.value.toUpperCase())} className="p-2 border rounded mb-4 w-full" placeholder="DIGITE AQUI"/>
                 <button onClick={()=>{
                     if(v===task.word){ playSuccessSound(); onComplete(5); }
-                    else { playFailureSound(0); alert("Errado"); onComplete(0); } // LOSE ALL
+                    else { playFailureSound(0); alert(`Errado! A palavra era: ${task.word}`); onComplete(0); } // LOSE ALL
                 }} className="bg-blue-500 text-white p-3 rounded-xl w-full font-bold">Verificar</button>
             </div>
         </div>

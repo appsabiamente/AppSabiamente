@@ -1,33 +1,43 @@
-import React, { useState, useEffect } from 'react';
-import { ShoppingCart, Video, Percent, X, Calculator, Coins, Wallet, Zap } from 'lucide-react';
+
+import React, { useState, useEffect, useRef } from 'react';
+import { ShoppingCart, Video, Percent, X, Calculator, Coins, Wallet, Zap, Trophy } from 'lucide-react';
+import { playSuccessSound, playFailureSound } from '../services/audioService';
 
 interface MathGameProps {
   onComplete: (score: number) => void;
   onExit: () => void;
   onRequestAd: (callback: () => void) => void;
+  highScore?: number;
 }
 
-const MathGame: React.FC<MathGameProps> = ({ onComplete, onExit, onRequestAd }) => {
+const MathGame: React.FC<MathGameProps> = ({ onComplete, onExit, onRequestAd, highScore }) => {
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState(0);
   const [options, setOptions] = useState<number[]>([]);
-  const [round, setRound] = useState(1);
   const [score, setScore] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(15);
+  const timerRef = useRef<any>(null);
 
   const generateProblem = () => {
+    // Difficulty scales with score
+    const difficultyMultiplier = 1 + Math.floor(score / 20); 
+    
     const op = Math.random() > 0.5 ? 'sum' : 'mixed';
     let ans = 0;
     let q = "";
     
+    // Scale numbers based on score
+    const maxVal = 30 * difficultyMultiplier; 
+    
     if (op === 'sum') {
-        const n1 = Math.floor(Math.random() * 30) + 10;
-        const n2 = Math.floor(Math.random() * 30) + 10;
+        const n1 = Math.floor(Math.random() * maxVal) + 10;
+        const n2 = Math.floor(Math.random() * maxVal) + 10;
         ans = n1 + n2;
         q = `R$ ${n1} + R$ ${n2}`;
     } else {
-        const n1 = Math.floor(Math.random() * 50) + 20;
-        const n2 = Math.floor(Math.random() * 15) + 5;
-        const n3 = Math.floor(Math.random() * 10) + 1;
+        const n1 = Math.floor(Math.random() * (maxVal + 20)) + 20;
+        const n2 = Math.floor(Math.random() * (maxVal/2)) + 5;
+        const n3 = Math.floor(Math.random() * 10 * difficultyMultiplier) + 1;
         ans = n1 - n2 + n3;
         q = `R$ ${n1} - R$ ${n2} + R$ ${n3}`;
     }
@@ -41,24 +51,39 @@ const MathGame: React.FC<MathGameProps> = ({ onComplete, onExit, onRequestAd }) 
         opts.add(ans + Math.floor(Math.random() * 14) - 7);
     }
     setOptions(Array.from(opts).sort((a,b) => a-b));
+    
+    // Reset timer on new question (less time as it gets harder)
+    setTimeLeft(Math.max(8, 15 - Math.floor(score/50))); 
   };
 
   useEffect(() => {
     generateProblem();
-  }, [round]);
+  }, []); // Run once on mount
+
+  useEffect(() => {
+      timerRef.current = setInterval(() => {
+          setTimeLeft(prev => {
+              if (prev <= 1) {
+                  clearInterval(timerRef.current);
+                  playFailureSound();
+                  alert(`Tempo esgotado! A resposta era R$ ${answer}.\nSua pontuação final: ${score}`);
+                  onComplete(0); // Lose if time runs out
+                  return 0;
+              }
+              return prev - 1;
+          });
+      }, 1000);
+      return () => clearInterval(timerRef.current);
+  }, [answer, score]); // Re-run timer logic when question changes
 
   const handleSelect = (val: number) => {
     if (val === answer) {
-        // RECOMPENSA REDUZIDA: De 5 para 3
-        const newScore = score + 3;
-        if (round < 5) {
-            setRound(r => r + 1);
-            setScore(newScore);
-        } else {
-            onComplete(newScore + 10);
-        }
+        playSuccessSound();
+        setScore(s => s + 3);
+        generateProblem();
     } else {
-        alert("Cálculo incorreto! Você perdeu o que ganhou nesta partida.");
+        playFailureSound();
+        alert(`Cálculo incorreto! A resposta era R$ ${answer}.\nVocê perdeu o que ganhou nesta partida.`);
         onComplete(0); // Lose all coins
     }
   };
@@ -81,16 +106,21 @@ const MathGame: React.FC<MathGameProps> = ({ onComplete, onExit, onRequestAd }) 
                     <Calculator size={24} />
                 </div>
                 <div>
-                    <h2 className="text-xl font-bold text-gray-800 leading-none">Cálculo</h2>
+                    <h2 className="text-xl font-bold text-gray-800 leading-none">Cálculo Infinito</h2>
                     <div className="flex items-center gap-2 mt-1">
-                        <span className="text-xs text-gray-500 font-semibold">Rodada {round}/5</span>
                         <span className="text-xs font-bold text-yellow-600 flex items-center gap-1"><Coins size={12}/> +{score}</span>
+                        {highScore && highScore > 0 && <span className="text-[10px] text-gray-400 flex items-center gap-1"><Trophy size={10}/> Recorde: {highScore}</span>}
                     </div>
                 </div>
             </div>
-            <button onClick={onExit} className="p-3 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors">
-                <X size={20} className="text-gray-600" />
-            </button>
+            <div className="flex items-center gap-2">
+                <span className={`font-mono font-bold text-lg px-2 py-1 rounded ${timeLeft < 5 ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-gray-100 text-gray-600'}`}>
+                    {timeLeft}s
+                </span>
+                <button onClick={onExit} className="p-3 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors">
+                    <X size={20} className="text-gray-600" />
+                </button>
+            </div>
         </div>
 
         <div className="flex gap-2">

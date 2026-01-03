@@ -169,17 +169,27 @@ export default function App() {
   useEffect(() => {
     const saved = localStorage.getItem('sabiamente_stats_v8');
     if (saved) {
-        const parsed = JSON.parse(saved);
-        if (!parsed.leaderboard) parsed.leaderboard = [];
-        if (!parsed.unlockedAvatars) parsed.unlockedAvatars = ['base'];
-        if (!parsed.currentAvatar) parsed.currentAvatar = 'base';
-        if (!parsed.language) parsed.language = 'pt';
-        if (parsed.weeklyTickets === undefined) parsed.weeklyTickets = 0;
-        if (parsed.raffleWins === undefined) parsed.raffleWins = 0;
-        if (!parsed.nextRaffleDate) parsed.nextRaffleDate = getNextSunday();
-        if (!parsed.dailyChallengesWon) parsed.dailyChallengesWon = 0;
-        if (!parsed.dailyChallengeLastCompleted) parsed.dailyChallengeLastCompleted = null;
-        setStats(prev => ({...prev, ...parsed}));
+        try {
+            const parsed = JSON.parse(saved);
+            // Defesa contra dados corrompidos
+            if (!parsed.leaderboard || !Array.isArray(parsed.leaderboard)) {
+                parsed.leaderboard = []; 
+            }
+            if (!parsed.unlockedAvatars) parsed.unlockedAvatars = ['base'];
+            if (!parsed.currentAvatar) parsed.currentAvatar = 'base';
+            if (!parsed.language) parsed.language = 'pt';
+            if (parsed.weeklyTickets === undefined) parsed.weeklyTickets = 0;
+            if (parsed.raffleWins === undefined) parsed.raffleWins = 0;
+            if (!parsed.nextRaffleDate) parsed.nextRaffleDate = getNextSunday();
+            if (!parsed.dailyChallengesWon) parsed.dailyChallengesWon = 0;
+            if (!parsed.dailyChallengeLastCompleted) parsed.dailyChallengeLastCompleted = null;
+            
+            const cleanStats = {...INITIAL_STATS, ...parsed};
+            setStats(cleanStats);
+        } catch (e) {
+            console.error("Save data corrupted, resetting to defaults", e);
+            initLeaderboard(INITIAL_STATS.coins);
+        }
     } else {
         initLeaderboard(INITIAL_STATS.coins);
     }
@@ -243,9 +253,22 @@ export default function App() {
   };
 
   // --- HELPER PARA SINCRONIZAR RANKING ---
-  // Esta função garante que a entrada 'user' no leaderboard sempre reflete os dados globais
   const syncWithLeaderboard = (s: UserStats): UserStats => {
-      const newLeaderboard = s.leaderboard.map(entry => {
+      if (!s.leaderboard || !Array.isArray(s.leaderboard)) {
+          return {
+              ...s,
+              leaderboard: [{ id: 'user', name: 'Você', coins: s.coins, avatar: s.currentAvatar, isUser: true, streak: s.streak }]
+          };
+      }
+
+      const userExists = s.leaderboard.some(e => e.isUser);
+      let newLeaderboard = [...s.leaderboard];
+
+      if (!userExists) {
+          newLeaderboard.push({ id: 'user', name: 'Você', coins: s.coins, avatar: s.currentAvatar, isUser: true, streak: s.streak });
+      }
+
+      newLeaderboard = newLeaderboard.map(entry => {
           if (entry.isUser) {
               return {
                   ...entry,
@@ -259,7 +282,6 @@ export default function App() {
       return { ...s, leaderboard: newLeaderboard };
   };
 
-  // Helper para atualizar Stats com sincronia automática
   const setStatsSynced = (updater: (prev: UserStats) => UserStats) => {
       setStats(prev => {
           const next = updater(prev);
@@ -381,12 +403,10 @@ export default function App() {
       setStats(prev => ({...prev, language: lang}));
   };
 
-  // CORRECT Date calculation: Ignore time, calculate full calendar days
   const getCalendarDaysDifference = (lastDateISO: string): number => {
       const now = new Date();
       const last = new Date(lastDateISO);
       
-      // Reset hours to midnight for pure calendar comparison
       const currentCalendarDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const lastCalendarDate = new Date(last.getFullYear(), last.getMonth(), last.getDate());
       
@@ -435,29 +455,23 @@ export default function App() {
       let newStreak = stats.streak;
       let streakUpdated = false;
 
-      // STREAK LOGIC
       if (score > 0) {
           const daysDiff = getCalendarDaysDifference(stats.lastPlayedDate);
           
           if (daysDiff === 1) {
-              // Consecutive Day
               newStreak = stats.streak + 1;
               streakUpdated = true;
               setStreakPopupValue(newStreak);
           } else if (daysDiff > 1) {
-              // Missed a day or more
               newStreak = 1;
               streakUpdated = true;
               setStreakPopupValue(1); 
           }
-          // If daysDiff === 0 (Played today already), streak stays same.
       }
 
       setStatsSynced(prev => {
-          // Fake leaderboard movement for others
           const updatedLeaderboard = prev.leaderboard.map(entry => {
               if (!entry.isUser) {
-                  // Small chance to increase random bot score
                   const gain = Math.floor(Math.random() * (score > 0 ? score * 1.1 : 5));
                   return { ...entry, coins: entry.coins + gain };
               }
@@ -472,7 +486,7 @@ export default function App() {
             level: newLevel,
             highScores: newHighScores,
             lastPlayedDate: new Date().toISOString(),
-            streak: newStreak, // Correct streak based on calendar diff
+            streak: newStreak, 
             leaderboard: updatedLeaderboard
           };
       });
@@ -592,14 +606,14 @@ export default function App() {
       switch(currentScreen) {
           case Screen.GAME_MEMORY: return <MemoryGame {...props} highScore={getScore('mem')} />;
           case Screen.GAME_TRIVIA: return <TriviaGame {...props} userCoins={stats.coins} onUseCoins={()=>{return true}} />;
-          case Screen.GAME_MATH: return <MathGame {...props} />;
+          case Screen.GAME_MATH: return <MathGame {...props} highScore={getScore('math')} />;
           case Screen.GAME_SEQUENCE: return <SequenceGame {...props} />;
           case Screen.GAME_SOUND: return <SoundGame {...props} />;
-          case Screen.GAME_INTRUDER: return <IntruderGame {...props} />;
-          case Screen.GAME_PROVERB: return <ProverbGame {...props} />;
-          case Screen.GAME_SCRAMBLE: return <ScrambleGame {...props} />;
-          case Screen.GAME_WORD_CHAIN: return <WordChainGame {...props} />;
-          case Screen.GAME_ZEN_FOCUS: return <ZenFocusGame {...props} />;
+          case Screen.GAME_INTRUDER: return <IntruderGame {...props} highScore={getScore('intr')} />;
+          case Screen.GAME_PROVERB: return <ProverbGame {...props} highScore={getScore('prov')} />;
+          case Screen.GAME_SCRAMBLE: return <ScrambleGame {...props} highScore={getScore('scram')} />;
+          case Screen.GAME_WORD_CHAIN: return <WordChainGame {...props} highScore={getScore('chain')} />;
+          case Screen.GAME_ZEN_FOCUS: return <ZenFocusGame {...props} highScore={getScore('zen')} />;
           case Screen.GAME_SUM_TARGET: return <SumTargetGame {...props} />;
           case Screen.GAME_PATTERN: return <PatternGame {...props} highScore={getScore('patt')} />;
           case Screen.GAME_ESTIMATE: return <EstimateGame {...props} highScore={getScore('est')} />;
@@ -1142,7 +1156,7 @@ export default function App() {
         )}
 
         {showAdModal && (
-            <div className="absolute inset-0 z-[80] bg-gray-900 flex flex-col items-center justify-center text-white p-8 animate-in fade-in">
+            <div className="absolute inset-0 z-[200] bg-gray-900 flex flex-col items-center justify-center text-white p-8 animate-in fade-in">
                 <div className="w-full h-56 bg-gray-800 rounded-3xl mb-8 flex items-center justify-center animate-pulse border border-gray-700">
                     <Video size={48} className="opacity-50"/>
                 </div>

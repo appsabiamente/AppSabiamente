@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { generateTriviaQuestion } from '../services/geminiService';
 import { TriviaQuestion } from '../types';
@@ -21,6 +22,8 @@ const TriviaGame: React.FC<TriviaGameProps> = ({ onComplete, onExit, userCoins, 
   const [visibleOptions, setVisibleOptions] = useState<string[]>([]);
   const [currentScore, setCurrentScore] = useState(0);
   const [showDecision, setShowDecision] = useState(false);
+  // State for correction modal
+  const [showCorrection, setShowCorrection] = useState(false);
 
   useEffect(() => {
     loadQuestion();
@@ -32,6 +35,7 @@ const TriviaGame: React.FC<TriviaGameProps> = ({ onComplete, onExit, userCoins, 
     setSelectedOption(null);
     setIsCorrect(null);
     setHintUsed(false);
+    setShowCorrection(false);
     
     const q = await generateTriviaQuestion();
     if (q) {
@@ -56,11 +60,7 @@ const TriviaGame: React.FC<TriviaGameProps> = ({ onComplete, onExit, userCoins, 
       setTimeout(() => setShowDecision(true), 1500); 
     } else {
         playFailureSound();
-        // Lose everything on error
-        setTimeout(() => {
-            alert("Errou! Você perdeu tudo que ganhou nesta partida.");
-            onComplete(0); 
-        }, 1000);
+        setTimeout(() => setShowCorrection(true), 1000);
     }
   };
 
@@ -81,6 +81,29 @@ const TriviaGame: React.FC<TriviaGameProps> = ({ onComplete, onExit, userCoins, 
         <button onClick={onExit} className="bg-gray-200 px-6 py-3 rounded-xl text-lg">Voltar</button>
       </div>
     );
+  }
+
+  // Correction Modal
+  if (showCorrection) {
+      return (
+          <div className="flex flex-col h-full bg-brand-bg p-6 items-center justify-center text-center">
+              <div className="bg-white p-8 rounded-3xl shadow-lg w-full max-w-sm animate-in zoom-in">
+                  <XCircle size={64} className="mx-auto text-red-500 mb-4"/>
+                  <h2 className="text-2xl font-black text-gray-800 mb-2">Errou!</h2>
+                  <p className="text-gray-500 mb-4">A resposta correta era:</p>
+                  <p className="text-xl font-bold text-green-600 mb-6 bg-green-50 p-4 rounded-xl border border-green-200">
+                      {question.correctAnswer}
+                  </p>
+                  <p className="text-sm text-gray-400 italic mb-6">Pontuação final: {currentScore}</p>
+                  <button 
+                    onClick={() => onComplete(0)}
+                    className="w-full bg-gray-900 text-white py-4 rounded-xl font-bold hover:scale-105 transition-transform"
+                  >
+                      Entendi
+                  </button>
+              </div>
+          </div>
+      )
   }
 
   // Decision Screen (Deal or No Deal style)

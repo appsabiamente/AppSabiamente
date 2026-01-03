@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { LucideIcon, Cat, Dog, Fish, Bird, Rabbit, Turtle, Brain, Video, Sparkles, X, Trophy, Coins, Bug, Apple, Star, Moon, Sun, Cloud, Heart, Wallet, Zap } from 'lucide-react';
 import { playSuccessSound, playFailureSound } from '../services/audioService';
@@ -18,7 +19,7 @@ interface Card {
 }
 
 // Extended Icon Set for Higher Levels
-const ALL_ICONS = [Cat, Dog, Fish, Bird, Rabbit, Turtle, Bug, Apple, Star, Moon, Sun, Cloud, Heart, Brain];
+const ALL_ICONS = [Cat, Dog, Fish, Bird, Rabbit, Turtle, Bug, Apple, Star, Moon, Sun, Cloud, Heart, Brain, Zap, Coins];
 const COLORS = ['text-red-500', 'text-blue-500', 'text-green-500', 'text-purple-500', 'text-orange-500', 'text-teal-500', 'text-pink-500', 'text-indigo-500'];
 
 const MemoryGame: React.FC<MemoryGameProps> = ({ onComplete, onExit, onRequestAd, highScore }) => {
@@ -45,7 +46,7 @@ const MemoryGame: React.FC<MemoryGameProps> = ({ onComplete, onExit, onRequestAd
            clearInterval(timerRef.current);
            playFailureSound();
            const consolation = Math.floor(score / 2);
-           alert(`Tempo esgotado! Você garantiu ${consolation} moedas (metade).`);
+           alert(`Tempo esgotado! Você chegou ao Nível ${level}.\nPontuação: ${score}\nVocê garantiu ${consolation} moedas.`);
            onComplete(consolation); 
            return 0;
         }
@@ -57,6 +58,9 @@ const MemoryGame: React.FC<MemoryGameProps> = ({ onComplete, onExit, onRequestAd
   }, [level, isFrozen, score]);
 
   const startLevel = () => {
+    // Infinite Progression Logic
+    // Capped at 10 pairs (20 cards) for mobile screen sanity
+    // Difficulty increases by reducing time after level 5
     let numPairs = 2;
     if (level === 2) numPairs = 3;
     if (level === 3) numPairs = 6;
@@ -76,8 +80,16 @@ const MemoryGame: React.FC<MemoryGameProps> = ({ onComplete, onExit, onRequestAd
     setCards(gameCards);
     setFlippedCards([]);
     setIsLocked(false);
-    // TEMPO REDUZIDO: Antes era 30 + 10*Nivel, agora 20 + 5*Nivel
-    setTimeLeft(20 + (level * 5)); 
+    
+    // Time Logic: Base time increases with pairs, but decreases with level after cap
+    let baseTime = 20 + (Math.min(level, 5) * 5); 
+    if (level > 5) {
+        // Decrease 5% time per level after 5
+        const reductionFactor = Math.pow(0.95, level - 5);
+        baseTime = Math.floor(baseTime * reductionFactor);
+    }
+    
+    setTimeLeft(Math.max(10, baseTime)); // Min 10s
     setIsFrozen(false);
   };
 
@@ -127,7 +139,7 @@ const MemoryGame: React.FC<MemoryGameProps> = ({ onComplete, onExit, onRequestAd
   useEffect(() => {
     if (cards.length > 0 && cards.every(c => c.isMatched)) {
         setTimeout(() => {
-            alert(`Nível ${level} Completo! Próximo nível...`);
+            // alert(`Nível ${level} Completo! Próximo nível...`); // Removed interrupt
             setLevel(l => l + 1);
         }, 500);
     }
