@@ -2,8 +2,9 @@
 import { TriviaQuestion, SequenceTask, IntruderTask, ScrambleTask, ProverbTask, DailyChallengeData } from "../types";
 import { GoogleGenAI, Type } from "@google/genai";
 
-// Inicialização direta do cliente API para velocidade máxima (Client-side)
+// Inicialização direta do cliente API (Client-side)
 // Isso resolve o problema de rotas de API inexistentes no Vercel estático
+// ATENÇÃO: A chave API deve estar configurada no .env do Vercel como REACT_APP_API_KEY ou VITE_API_KEY ou apenas API_KEY dependendo do build
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 const MODEL_NAME = "gemini-3-flash-preview";
 
@@ -11,7 +12,7 @@ const MODEL_NAME = "gemini-3-flash-preview";
 
 export const generateTriviaQuestion = async (topic: string = "general"): Promise<TriviaQuestion | null> => {
   try {
-    const prompt = `Gere uma pergunta de trivia DESAFIADORA para idosos. Tópico: ${topic}. Retorne JSON.`;
+    const prompt = `Gere uma pergunta de trivia (conhecimentos gerais) adequada para idosos brasileiros. Tópico: ${topic}. Retorne JSON.`;
     const response = await ai.models.generateContent({
       model: MODEL_NAME,
       contents: prompt,
@@ -38,7 +39,7 @@ export const generateTriviaQuestion = async (topic: string = "general"): Promise
 
 export const generateSequenceTask = async (): Promise<SequenceTask | null> => {
   try {
-    const prompt = `Crie uma tarefa lógica com 5 passos (aumentando dificuldade). Ex: Receita de bolo, trocar pneu. JSON.`;
+    const prompt = `Crie uma tarefa lógica do dia a dia com 5 passos. Ex: Fazer café, Plantar uma flor. JSON.`;
     const response = await ai.models.generateContent({
       model: MODEL_NAME,
       contents: prompt,
@@ -64,13 +65,13 @@ export const getEncouragementMessage = async (streak: number): Promise<string> =
       model: MODEL_NAME,
       contents: `Frase motivadora curta para idoso, ${streak} dias seguidos.`,
     });
-    return response.text || "Parabéns!";
+    return response.text || "Parabéns pela dedicação!";
   } catch (e) { return "Continue assim!"; }
 };
 
 export const generateIntruderTask = async (): Promise<IntruderTask | null> => {
   try {
-    const prompt = "Crie um jogo 'Encontre o Intruso'. Liste 4 itens, onde 3 pertencem a uma categoria e 1 não. O intruso deve ser sutil. JSON.";
+    const prompt = "Crie um jogo 'Encontre o Intruso'. Liste 4 itens simples, onde 3 são da mesma categoria e 1 não. JSON.";
     const response = await ai.models.generateContent({
       model: MODEL_NAME,
       contents: prompt,
@@ -93,7 +94,7 @@ export const generateIntruderTask = async (): Promise<IntruderTask | null> => {
 
 export const generateScrambleTask = async (): Promise<ScrambleTask | null> => {
   try {
-    const prompt = "Escolha uma palavra média/longa (8+ letras) em português e embaralhe as letras. JSON.";
+    const prompt = "Escolha uma palavra positiva (8+ letras) em português e embaralhe as letras. JSON.";
     const response = await ai.models.generateContent({
       model: MODEL_NAME,
       contents: prompt,
@@ -116,7 +117,7 @@ export const generateScrambleTask = async (): Promise<ScrambleTask | null> => {
 
 export const generateProverbTask = async (topic: string = "general"): Promise<ProverbTask | null> => {
   try {
-    const prompt = "Ditado popular brasileiro difícil ou incomum. Divida em duas partes. Gere 3 opções erradas que rimem. JSON.";
+    const prompt = "Ditado popular brasileiro famoso. Divida em duas partes. Gere 3 opções erradas que confundam (rimem ou pareçam lógicas). JSON.";
     const response = await ai.models.generateContent({
       model: MODEL_NAME,
       contents: prompt,
@@ -139,14 +140,7 @@ export const generateProverbTask = async (topic: string = "general"): Promise<Pr
 
 export const generateDailyWordChallenge = async (): Promise<DailyChallengeData | null> => {
     try {
-        const prompt = `Gere uma única "Palavra do Dia" para um jogo cognitivo de idosos em Português.
-        A palavra deve ser:
-        1. Comum, mas levemente sofisticada (5 a 8 letras).
-        2. Positiva ou neutra.
-        
-        Também forneça uma dica/definição clara.
-        Retorne JSON.`;
-
+        const prompt = `Gere uma única "Palavra do Dia" (PT-BR). Comum, positiva, 5-8 letras. Dica clara. JSON.`;
         const response = await ai.models.generateContent({
             model: MODEL_NAME,
             contents: prompt,
@@ -169,36 +163,48 @@ export const generateDailyWordChallenge = async (): Promise<DailyChallengeData |
 // --- FAST & LENIENT WORD CHAIN ---
 
 export const validateWordChain = async (lastWord: string, userWord: string, category: string): Promise<{isValid: boolean, message: string, nextWord?: string}> => {
-    // Verificações locais imediatas para economizar tempo
-    if (!userWord || userWord.length < 2) return { isValid: false, message: "Muito curta." };
+    // 1. Validação Local Rápida (Sintaxe)
+    if (!userWord || userWord.trim().length < 2) return { isValid: false, message: "Palavra muito curta." };
     
     const lastLetter = lastWord.slice(-1).toLowerCase();
-    const firstLetter = userWord.charAt(0).toLowerCase();
+    const firstLetter = userWord.trim().charAt(0).toLowerCase();
 
-    // Verificação de letra inicial local (Rápido)
-    if (lastLetter !== firstLetter) {
+    // Remove acentos para comparação da letra
+    const normalize = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    
+    if (normalize(lastLetter) !== normalize(firstLetter)) {
         return { isValid: false, message: `Deve começar com a letra '${lastLetter.toUpperCase()}'` };
     }
 
     try {
-        // Prompt otimizado para velocidade e tolerância a erros
+        // 2. Validação Semântica via IA
         const prompt = `
-        Jogo de palavras. Categoria: "${category}".
-        Anterior: "${lastWord}". Usuário: "${userWord}".
+        Contexto: Jogo de palavras "Corrente".
+        Categoria: "${category}".
+        Anterior: "${lastWord}".
+        Usuário digitou: "${userWord}".
         
-        Tarefa Rápida:
-        1. Valide se a palavra do usuário pertence à categoria (ignore acentos).
-        2. ACEITE ERROS DE DIGITAÇÃO LEVES (ex: "bannana" ou "abacaxi" com 'ch' devem ser aceitos se foneticamente próximos).
-        3. Se válido, gere "nextWord" (PT-BR) que comece com a última letra da palavra do usuário.
+        Tarefa:
+        1. A palavra do usuário existe em Português? (Seja leniente com acentos faltantes).
+        2. Ela pertence (mesmo que remotamente) à categoria?
         
-        Retorne JSON puro.
+        Se SIM para ambos:
+        - isValid: true
+        - message: "Muito bem!"
+        - nextWord: Uma palavra nova dessa categoria que comece com a última letra de "${userWord}".
+        
+        Se NÃO:
+        - isValid: false
+        - message: Explique o erro em 4 palavras.
+        
+        JSON APENAS.
         `;
         
         const response = await ai.models.generateContent({
             model: MODEL_NAME,
             contents: prompt,
             config: {
-                temperature: 0.3, // Baixa temperatura para resposta mais rápida e direta
+                temperature: 0.5,
                 responseMimeType: "application/json",
                 responseSchema: {
                     type: Type.OBJECT,
@@ -216,11 +222,15 @@ export const validateWordChain = async (lastWord: string, userWord: string, cate
              const res = JSON.parse(response.text);
              return res;
         }
-        return { isValid: false, message: "Erro de conexão." };
+        // Se a API não devolver JSON válido, aprovamos para não frustrar o usuário
+        return { isValid: true, message: "Aceito!", nextWord: "Bola" };
 
     } catch (e) {
-        console.error(e);
-        // Fallback gracioso em caso de erro da API para não travar o jogo
-        return { isValid: false, message: "Tente novamente." };
+        console.error("Validation Error", e);
+        // Fallback gracioso em caso de erro de rede/API
+        // Assumimos válido para não travar o jogo
+        const fallbacks = ["Casa", "Dado", "Elefante", "Faca", "Gato"];
+        const randomNext = fallbacks[Math.floor(Math.random() * fallbacks.length)];
+        return { isValid: true, message: "Conexão instável, mas aceito!", nextWord: randomNext };
     }
 }

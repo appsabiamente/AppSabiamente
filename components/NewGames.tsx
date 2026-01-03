@@ -75,7 +75,7 @@ const GameHeader: React.FC<{
     </div>
 );
 
-// === EXISTING INFINITE GAMES ===
+// === NEW GAMES IMPLEMENTATION ===
 
 export const WordChainGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd, highScore }) => {
     const [history, setHistory] = useState<string[]>([]); 
@@ -151,7 +151,8 @@ export const WordChainGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
             setTimeout(() => inputRef.current?.focus(), 100);
 
             if (newHistory.length > 0 && newHistory.length % 4 === 0) {
-                 alert(`Nível ${level} concluído!`);
+                 // Level up every 4 words
+                 // alert(`Nível ${level} concluído!`); // Removed to keep flow
                  setLevel(l => l + 1);
             }
         } else {
@@ -228,12 +229,13 @@ export const WordChainGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
 };
 
 export const ZenFocusGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd, highScore }) => {
+    // ... (Keep existing implementation as it is stable)
+    // For brevity, copying logic but it's unchanged in this request
     const [items, setItems] = useState<{id: number, type: 'good'|'bad', x: number, y: number}[]>([]);
     const [score, setScore] = useState(0);
     const [lives, setLives] = useState(3);
     const [gameOver, setGameOver] = useState(false);
     const reqRef = useRef<number>();
-    
     const speedMultiplier = 0.8 + (score * 0.05); 
 
     useEffect(() => {
@@ -271,7 +273,6 @@ export const ZenFocusGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
             if (!gameOver) reqRef.current = requestAnimationFrame(loop);
         };
         reqRef.current = requestAnimationFrame(loop);
-
         return () => { clearInterval(spawn); cancelAnimationFrame(reqRef.current!); };
     }, [gameOver, score]);
 
@@ -341,6 +342,7 @@ export const SumTargetGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
      const [options, setOptions] = useState<number[]>([]);
      const [timeLeft, setTimeLeft] = useState(15);
      const [score, setScore] = useState(0);
+     const [level, setLevel] = useState(1); // Difficulty level
      const [paused, setPaused] = useState(false);
      const [showVictory, setShowVictory] = useState(false);
      const isGameOverRef = useRef(false);
@@ -372,23 +374,42 @@ export const SumTargetGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
      const resetRound = () => {
          isGameOverRef.current = false;
          
-         const t = Math.floor(Math.random() * 25) + 20; 
+         // LEVEL SCALING LOGIC
+         // Level 1: Target ~20-30
+         // Level 5: Target ~40-60
+         // Level 10: Target ~80-120
+         const baseTarget = 15 + (level * 5); 
+         const variance = Math.floor(Math.random() * 10) + (level * 2);
+         const t = baseTarget + variance;
+         
          setTarget(t);
          setCurrentSum(0);
          setHistory([]);
          
-         const p1 = Math.floor(Math.random() * (t - 5)) + 1;
-         const p2 = Math.floor(Math.random() * (t - p1 - 2)) + 1;
-         const p3 = t - p1 - p2;
-         const solution = [p1, p2, p3];
+         // Solution generation (Ensure solvable)
+         const p1 = Math.floor(Math.random() * (t / 2)) + 1;
+         const p2 = Math.floor(Math.random() * ((t - p1) / 2)) + 1;
+         const remaining = t - p1 - p2;
+         const p3 = remaining > 0 ? remaining : 0;
          
-         const randoms = Array.from({length: 6}, () => Math.floor(Math.random() * 15) + 1);
+         // If p3 is 0 or negative (rare edge case), force sol
+         const solution = p3 > 0 ? [p1, p2, p3] : [p1, t - p1];
+         
+         // Distractors scaling
+         const maxOption = t - 2;
+         const randoms = Array.from({length: 6}, () => Math.floor(Math.random() * maxOption) + 1);
          const allOpts = [...solution, ...randoms].sort(() => Math.random() - 0.5);
          
          setOptions(allOpts);
-         setTimeLeft(20);
+         setTimeLeft(Math.max(15, 15 + Math.floor(level/2))); // Give more time for harder math
          setShowVictory(false);
      };
+
+     const handleNextLevel = () => {
+         setScore(s => s + 5);
+         setLevel(l => l + 1);
+         resetRound();
+     }
 
      const handleAdvantage = () => {
         setPaused(true);
@@ -409,7 +430,6 @@ export const SumTargetGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
  
          if (newSum === target) {
              playSuccessSound();
-             setScore(s => s + 5);
              setShowVictory(true); 
          } else if (newSum > target) {
              if (!isGameOverRef.current) {
@@ -436,7 +456,7 @@ export const SumTargetGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
      return (
          <div className="flex flex-col h-full bg-brand-bg relative">
              <GameHeader 
-                title="Soma Alvo" 
+                title={`Soma Alvo (Nv.${level})`} 
                 icon={<Target size={24} className="text-green-600"/>} 
                 onExit={onExit} 
                 currentCoins={score} 
@@ -454,10 +474,10 @@ export const SumTargetGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
                         <Trophy className="mx-auto text-yellow-500 mb-4 animate-bounce" size={64}/>
                         <h2 className="text-2xl font-black text-gray-800 mb-2">Alvo Atingido!</h2>
                         <div className="flex flex-col gap-3 mt-4">
-                            <button onClick={resetRound} className="w-full bg-brand-primary text-white py-3 rounded-xl font-bold text-lg flex items-center justify-center gap-2">
-                                <ArrowRight size={20}/> Continuar (+5 pts)
+                            <button onClick={handleNextLevel} className="w-full bg-brand-primary text-white py-3 rounded-xl font-bold text-lg flex items-center justify-center gap-2">
+                                <ArrowRight size={20}/> Próximo Nível (+5 pts)
                             </button>
-                            <button onClick={() => onComplete(score)} className="w-full bg-green-100 text-green-800 py-3 rounded-xl font-bold text-lg flex items-center justify-center gap-2">
+                            <button onClick={() => onComplete(score + 5)} className="w-full bg-green-100 text-green-800 py-3 rounded-xl font-bold text-lg flex items-center justify-center gap-2">
                                 <StopCircle size={20}/> Parar e Resgatar
                             </button>
                         </div>
@@ -486,30 +506,48 @@ export const SumTargetGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
  };
 
 export const CardGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd, highScore }) => {
+    // Store CURRENT card and HIDDEN NEXT card
     const [currentCard, setCurrentCard] = useState(5);
+    const [nextCard, setNextCard] = useState(8); // Pre-calculated next card
+    
     const [score, setScore] = useState(0);
     const [combo, setCombo] = useState(0);
     const [hint, setHint] = useState<string | null>(null);
 
+    // Initialize on mount
+    useEffect(() => {
+        const c1 = Math.floor(Math.random() * 13) + 1;
+        const c2 = Math.floor(Math.random() * 13) + 1;
+        setCurrentCard(c1);
+        setNextCard(c2);
+    }, []);
+
     const handleGuess = (higher: boolean) => {
-        const next = Math.floor(Math.random() * 13) + 1;
         setHint(null); // Clear hint
-        if ((higher && next >= currentCard) || (!higher && next <= currentCard)) {
+        
+        // Compare with the PRE-CALCULATED next card
+        if ((higher && nextCard >= currentCard) || (!higher && nextCard <= currentCard)) {
             playSuccessSound();
             const comboBonus = Math.min(combo, 5); 
             setScore(s => s + 2 + comboBonus);
             setCombo(c => c + 1);
-            setCurrentCard(next);
+            
+            // Advance game state
+            setCurrentCard(nextCard);
+            setNextCard(Math.floor(Math.random() * 13) + 1); // Generate NEW next card
         } else {
             playFailureSound();
-            alert(`Era ${next}! Fim de jogo.`);
+            alert(`Era ${nextCard}! Fim de jogo.`);
             onComplete(score);
         }
     }
 
     const handleAdvantage = () => {
          onRequestAd(() => {
-             setHint(`Dica: A próxima carta é ${Math.random() > 0.5 ? "Alta (>7)" : "Baixa (<7)"} (Simulado)`);
+             // Peek at the HIDDEN next card
+             const type = nextCard > 7 ? "Alta (>7)" : "Baixa (<=7)";
+             // Simulate randomness in hint phrasing but keep it truthful
+             setHint(`O oráculo viu: A próxima é ${type}`);
          });
     }
 
@@ -557,6 +595,7 @@ export const CardGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd,
     );
 }
 
+// ... (Other standard games like PatternGame, EstimateGame remain unchanged for this fix request) ...
 export const PatternGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd, highScore }) => {
     const [pattern, setPattern] = useState<number[]>([]);
     const [userPattern, setUserPattern] = useState<number[]>([]);
@@ -754,16 +793,17 @@ export const EstimateGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
     );
 }
 
-// HARDER ROTATION GAME (45 degree intervals and tricky logic)
+// IMPROVED VARIETY ROTATION GAME
 export const RotationGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd, highScore }) => {
-    const [targetLetter, setTargetLetter] = useState("F");
+    const [targetSymbol, setTargetSymbol] = useState("F");
     const [angle, setAngle] = useState(0);
     const [score, setScore] = useState(0);
     
-    const LETTERS = ["F", "R", "L", "G", "P", "J"];
+    // Expanded symbols list for variety
+    const SYMBOLS = ["F", "R", "L", "G", "P", "J", "➔", "▲", "★", "♣", "7", "4"];
 
     useEffect(() => { 
-        setTargetLetter(LETTERS[Math.floor(Math.random() * LETTERS.length)]);
+        setTargetSymbol(SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)]);
         // Angle can be 0, 45, 90, 135, 180...
         setAngle(Math.floor(Math.random() * 8) * 45); 
     }, [score]);
@@ -793,11 +833,8 @@ export const RotationGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
         const options = new Set<number>();
         options.add(correct);
         
-        // Add tricky distractors (e.g. 45 degrees off, or mirrors)
-        // Here we just pick other 45 degree intervals
         while(options.size < 4) {
             // High probability of picking close angles
-            const noise = (Math.floor(Math.random() * 3) - 1) * 45; // -45, 0, +45 relative to random base
             const candidate = (Math.floor(Math.random() * 8) * 45);
             options.add(candidate);
         }
@@ -828,7 +865,7 @@ export const RotationGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
                         className="text-8xl font-black text-cyan-600 transition-transform block" 
                         style={{transform: `rotate(${angle}deg)`}}
                     >
-                        {targetLetter}
+                        {targetSymbol}
                     </span>
                 </div>
                 <div className="text-center font-bold text-gray-600 text-lg max-w-xs">
@@ -841,7 +878,7 @@ export const RotationGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
                                 className="text-5xl font-black text-gray-700 block"
                                 style={{transform: `rotate(${a}deg)`}}
                             >
-                                {targetLetter}
+                                {targetSymbol}
                             </span>
                         </button>
                     ))}
@@ -852,6 +889,7 @@ export const RotationGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
 }
 
 export const ColorMatchGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd, highScore }) => {
+    // ... (Keep existing)
     const [word, setWord] = useState("");
     const [color, setColor] = useState("");
     const [score, setScore] = useState(0);
@@ -920,6 +958,7 @@ export const ColorMatchGame: React.FC<GameProps> = ({ onComplete, onExit, onRequ
 }
 
 export const HiddenObjectGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd, highScore }) => {
+    // ... (Keep existing)
     const [grid, setGrid] = useState<any[]>([]);
     const [target, setTarget] = useState<any>(null);
     const [score, setScore] = useState(0);
@@ -989,6 +1028,7 @@ const StarIcon = ({size, className}:{size:number, className?:string}) => (
 );
 
 export const MathRainGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd, highScore }) => {
+    // ... (Keep existing)
     const [q, setQ] = useState({t: "2+2", a: 4});
     const [timeLeft, setTimeLeft] = useState(5);
     const [score, setScore] = useState(0);
@@ -1049,6 +1089,7 @@ export const MathRainGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
 }
 
 export const MovingHuntGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd, highScore }) => {
+    // ... (Keep existing)
     const [items, setItems] = useState<any[]>([]);
     const [score, setScore] = useState(0);
     const reqRef = useRef<number>();
@@ -1144,18 +1185,18 @@ export const IntruderGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
         });
     }
 
+    if (loading) return <LoadingScreen message="Procurando Intrusos..." />;
+
     return (
         <div className="flex flex-col h-full bg-brand-bg">
             <GameHeader title="Intruso" icon={<Search size={24} className="text-purple-600"/>} onExit={onExit} currentCoins={score} onCollect={() => onComplete(score)} onGetAdvantage={handleAdvantage} advantageLabel="Dica (Vídeo)" highScore={highScore} scoreLabel="Máx Pontos" />
             <div className="flex-grow flex flex-col items-center justify-center p-6 gap-6">
                 <h3 className="text-xl font-bold text-gray-700">Qual item não pertence?</h3>
-                {loading ? <Loader2 className="animate-spin text-purple-500" size={48}/> : (
-                    <div className="grid grid-cols-2 gap-4 w-full">
-                        {task?.items.map((item, i) => (
-                            <button key={i} onClick={() => handleGuess(item)} className="bg-white p-6 rounded-2xl shadow-sm font-bold text-lg hover:bg-purple-50 active:scale-95 transition-all border border-gray-100">{item}</button>
-                        ))}
-                    </div>
-                )}
+                <div className="grid grid-cols-2 gap-4 w-full">
+                    {task?.items.map((item, i) => (
+                        <button key={i} onClick={() => handleGuess(item)} className="bg-white p-6 rounded-2xl shadow-sm font-bold text-lg hover:bg-purple-50 active:scale-95 transition-all border border-gray-100">{item}</button>
+                    ))}
+                </div>
             </div>
         </div>
     );
@@ -1250,25 +1291,23 @@ export const ScrambleGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
         });
     }
 
+    if (loading) return <LoadingScreen message="Embaralhando..." />;
+
     return (
         <div className="flex flex-col h-full bg-brand-bg">
             <GameHeader title="Embaralhado" icon={<Type size={24} className="text-indigo-600"/>} onExit={onExit} currentCoins={score} onCollect={() => onComplete(score)} onGetAdvantage={handleAdvantage} advantageLabel="Dica (Vídeo)" highScore={highScore} scoreLabel="Máx Pontos" />
             <div className="flex-grow flex flex-col items-center justify-center p-6 gap-8">
-                {loading ? <Loader2 className="animate-spin text-indigo-500" size={48}/> : (
-                    <>
-                        <div className="text-center">
-                            <p className="text-sm text-gray-400 font-bold uppercase mb-2">Desembaralhe:</p>
-                            <div className="text-4xl font-black text-indigo-600 tracking-widest break-all">{task?.scrambled}</div>
-                        </div>
-                        <input 
-                            value={input}
-                            onChange={(e) => setInput(e.target.value.toUpperCase())}
-                            className="w-full p-4 text-center text-xl font-bold rounded-2xl border-2 border-indigo-100 focus:border-indigo-500 outline-none uppercase"
-                            placeholder="Sua resposta..."
-                        />
-                        <button onClick={check} className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold shadow-lg active:scale-95 transition-transform">Verificar</button>
-                    </>
-                )}
+                <div className="text-center">
+                    <p className="text-sm text-gray-400 font-bold uppercase mb-2">Desembaralhe:</p>
+                    <div className="text-4xl font-black text-indigo-600 tracking-widest break-all">{task?.scrambled}</div>
+                </div>
+                <input 
+                    value={input}
+                    onChange={(e) => setInput(e.target.value.toUpperCase())}
+                    className="w-full p-4 text-center text-xl font-bold rounded-2xl border-2 border-indigo-100 focus:border-indigo-500 outline-none uppercase"
+                    placeholder="Sua resposta..."
+                />
+                <button onClick={check} className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold shadow-lg active:scale-95 transition-transform">Verificar</button>
             </div>
         </div>
     );
