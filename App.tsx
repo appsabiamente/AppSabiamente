@@ -242,6 +242,31 @@ export default function App() {
       setPendingForcedAd(false);
   };
 
+  // --- HELPER PARA SINCRONIZAR RANKING ---
+  // Esta função garante que a entrada 'user' no leaderboard sempre reflete os dados globais
+  const syncWithLeaderboard = (s: UserStats): UserStats => {
+      const newLeaderboard = s.leaderboard.map(entry => {
+          if (entry.isUser) {
+              return {
+                  ...entry,
+                  coins: s.coins,
+                  streak: s.streak,
+                  avatar: s.currentAvatar
+              };
+          }
+          return entry;
+      });
+      return { ...s, leaderboard: newLeaderboard };
+  };
+
+  // Helper para atualizar Stats com sincronia automática
+  const setStatsSynced = (updater: (prev: UserStats) => UserStats) => {
+      setStats(prev => {
+          const next = updater(prev);
+          return syncWithLeaderboard(next);
+      });
+  };
+
   const initLeaderboard = (userCoins: number) => {
       const entries: LeaderboardEntry[] = [];
       entries.push({ id: 'user', name: 'Você', coins: userCoins, avatar: 'base', isUser: true, streak: 0 });
@@ -257,31 +282,17 @@ export default function App() {
               streak: randomStreak
           });
       });
-      setStats(s => ({...s, leaderboard: entries}));
+      setStats(s => syncWithLeaderboard({...s, leaderboard: entries}));
   };
 
   const refreshRanking = () => {
-      setStats(prev => {
+      setStatsSynced(prev => {
           const updated = prev.leaderboard.map(entry => {
               if (entry.isUser) return entry;
               const change = Math.floor(Math.random() * 100) - 20; 
               return { ...entry, coins: Math.max(0, entry.coins + change) };
           });
           return { ...prev, leaderboard: updated };
-      });
-  };
-
-  const updateLeaderboard = (userEarned: number) => {
-      setStats(prev => {
-          const newLeaderboard = prev.leaderboard.map(entry => {
-              if (entry.isUser) {
-                  return { ...entry, coins: prev.coins + userEarned, avatar: prev.currentAvatar, streak: prev.streak };
-              } else {
-                  const gain = Math.floor(Math.random() * (userEarned > 0 ? userEarned * 1.2 : 5));
-                  return { ...entry, coins: entry.coins + gain };
-              }
-          });
-          return { ...prev, leaderboard: newLeaderboard };
       });
   };
 
@@ -299,23 +310,19 @@ export default function App() {
           }
       });
       if(newUnlock) {
-          setStats(s => ({...s, coins: s.coins + coinsToAdd, unlockedAchievements: updatedList}));
+          setStatsSynced(s => ({...s, coins: s.coins + coinsToAdd, unlockedAchievements: updatedList}));
           setTimeout(() => setUnlockedAchievement(null), 5000); 
       }
   };
 
   const handleDailyClaim = (rewardAmount: number) => {
       const today = new Date().toDateString();
-      setStats(s => {
-          let newStreak = s.dailyStreak + 1;
-          
-          return {
-              ...s,
-              coins: s.coins + rewardAmount,
-              lastDailyClaim: today,
-              dailyStreak: newStreak,
-          }
-      });
+      setStatsSynced(s => ({
+          ...s,
+          coins: s.coins + rewardAmount,
+          lastDailyClaim: today,
+          dailyStreak: s.dailyStreak + 1,
+      }));
       alert(`Recebido! +${rewardAmount} moedas.`);
   };
 
@@ -339,7 +346,7 @@ export default function App() {
       
       if (pendingAdReward === 'GAME_UNLOCK' && pendingUnlock?.game) {
           const gameId = pendingUnlock.game.id;
-          setStats(s => ({
+          setStatsSynced(s => ({
               ...s,
               unlockedGames: [...s.unlockedGames, gameId]
           }));
@@ -359,7 +366,7 @@ export default function App() {
   }
 
   const confirmRating = () => {
-      setStats(s => ({...s, coins: s.coins + 100, hasRatedApp: true}));
+      setStatsSynced(s => ({...s, coins: s.coins + 100, hasRatedApp: true}));
       setIsRatingCheck(false);
       alert("Obrigado por avaliar! +100 Moedas adicionadas.");
   }
@@ -374,19 +381,24 @@ export default function App() {
       setStats(prev => ({...prev, language: lang}));
   };
 
+  // CORRECT Date calculation: Ignore time, calculate full calendar days
   const getCalendarDaysDifference = (lastDateISO: string): number => {
       const now = new Date();
       const last = new Date(lastDateISO);
+      
+      // Reset hours to midnight for pure calendar comparison
       const currentCalendarDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const lastCalendarDate = new Date(last.getFullYear(), last.getMonth(), last.getDate());
+      
       const msPerDay = 1000 * 60 * 60 * 24;
       const diffTime = currentCalendarDate.getTime() - lastCalendarDate.getTime();
+      
       return Math.floor(diffTime / msPerDay);
   };
 
   const handleDailyChallengeWin = (coinsWon: number) => {
       const today = new Date().toISOString().split('T')[0];
-      setStats(prev => ({
+      setStatsSynced(prev => ({
           ...prev,
           coins: prev.coins + coinsWon,
           dailyChallengeLastCompleted: today,
@@ -423,20 +435,36 @@ export default function App() {
       let newStreak = stats.streak;
       let streakUpdated = false;
 
+      // STREAK LOGIC
       if (score > 0) {
           const daysDiff = getCalendarDaysDifference(stats.lastPlayedDate);
+          
           if (daysDiff === 1) {
+              // Consecutive Day
               newStreak = stats.streak + 1;
               streakUpdated = true;
               setStreakPopupValue(newStreak);
           } else if (daysDiff > 1) {
+              // Missed a day or more
               newStreak = 1;
               streakUpdated = true;
               setStreakPopupValue(1); 
           }
+          // If daysDiff === 0 (Played today already), streak stays same.
       }
 
-      setStats(prev => ({
+      setStatsSynced(prev => {
+          // Fake leaderboard movement for others
+          const updatedLeaderboard = prev.leaderboard.map(entry => {
+              if (!entry.isUser) {
+                  // Small chance to increase random bot score
+                  const gain = Math.floor(Math.random() * (score > 0 ? score * 1.1 : 5));
+                  return { ...entry, coins: entry.coins + gain };
+              }
+              return entry; 
+          });
+
+          return {
             ...prev,
             coins: newCoins,
             totalGamesPlayed: prev.totalGamesPlayed + 1,
@@ -444,10 +472,10 @@ export default function App() {
             level: newLevel,
             highScores: newHighScores,
             lastPlayedDate: new Date().toISOString(),
-            streak: newStreak,
-            leaderboard: streakUpdated ? prev.leaderboard.map(e => e.isUser ? {...e, streak: newStreak} : e) : prev.leaderboard
-      }));
-      updateLeaderboard(score);
+            streak: newStreak, // Correct streak based on calendar diff
+            leaderboard: updatedLeaderboard
+          };
+      });
   };
 
   const handleRestart = () => {
@@ -489,7 +517,7 @@ export default function App() {
       const cost = pendingUnlock.game.unlockCost;
       
       if (stats.coins >= cost) {
-          setStats(s => ({
+          setStatsSynced(s => ({
               ...s,
               coins: s.coins - cost,
               unlockedGames: [...s.unlockedGames, pendingUnlock.game.id]
@@ -521,14 +549,14 @@ export default function App() {
       }
       if (stats.coins >= item.cost) {
           if (item.type === 'THEME') {
-              setStats(s => ({
+              setStatsSynced(s => ({
                   ...s, 
                   coins: s.coins - item.cost, 
                   unlockedThemes: [...s.unlockedThemes, item.value as ThemeId], 
                   currentTheme: item.value as ThemeId 
               }));
           } else {
-              setStats(s => ({
+              setStatsSynced(s => ({
                   ...s, 
                   coins: s.coins - item.cost, 
                   unlockedAvatars: [...s.unlockedAvatars, item.value as AvatarId], 
@@ -541,8 +569,8 @@ export default function App() {
   };
 
   const equipItem = (type: 'THEME'|'AVATAR', val: string) => {
-      if (type === 'THEME') setStats(s => ({...s, currentTheme: val as ThemeId}));
-      else setStats(s => ({...s, currentAvatar: val as AvatarId}));
+      if (type === 'THEME') setStatsSynced(s => ({...s, currentTheme: val as ThemeId}));
+      else setStatsSynced(s => ({...s, currentAvatar: val as AvatarId}));
   };
 
   const toggleSound = () => {
@@ -552,7 +580,7 @@ export default function App() {
   const watchAdForCoins = () => {
       requestAd(() => {
           const reward = 20;
-          setStats(s => ({ ...s, coins: s.coins + reward }));
+          setStatsSynced(s => ({ ...s, coins: s.coins + reward }));
           alert(`Você ganhou ${reward} moedas!`);
       });
   };
@@ -864,7 +892,7 @@ export default function App() {
             {currentScreen === Screen.BETTING && (
                 <Betting 
                     stats={stats} 
-                    onUpdateStats={(newStats) => setStats(s => ({...s, ...newStats}))} 
+                    onUpdateStats={(newStats) => setStatsSynced(s => ({...s, ...newStats}))} 
                     onExit={handleGoHome} 
                     onRequestAd={requestAd}
                     onClaimDaily={handleDailyClaim}
@@ -876,7 +904,7 @@ export default function App() {
                 <Settings 
                     stats={stats} 
                     onToggleSound={toggleSound} 
-                    onToggleNotifications={() => setStats(s => ({...s, notificationsEnabled: !s.notificationsEnabled}))}
+                    onToggleNotifications={() => setStatsSynced(s => ({...s, notificationsEnabled: !s.notificationsEnabled}))}
                     onResetProgress={handleResetProgress}
                     onExit={handleGoHome}
                     onLanguageChange={handleLanguageChange}
