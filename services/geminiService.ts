@@ -1,10 +1,12 @@
+
+import { TriviaQuestion, SequenceTask, IntruderTask, ScrambleTask, ProverbTask, DailyChallengeData } from "../types";
 import { GoogleGenAI, Type } from "@google/genai";
-import { TriviaQuestion, SequenceTask, IntruderTask, ScrambleTask, ProverbTask } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 const MODEL_NAME = "gemini-3-flash-preview";
 
-// --- EXISTING GENERATORS (Retained) ---
+// --- GENERATORS ---
+
 export const generateTriviaQuestion = async (topic: string = "general"): Promise<TriviaQuestion | null> => {
   try {
     const prompt = `Gere uma pergunta de trivia DESAFIADORA para idosos. Tópico: ${topic}. Retorne JSON.`;
@@ -107,7 +109,7 @@ export const generateScrambleTask = async (): Promise<ScrambleTask | null> => {
   } catch (e) { return null; }
 };
 
-export const generateProverbTask = async (): Promise<ProverbTask | null> => {
+export const generateProverbTask = async (topic: string = "general"): Promise<ProverbTask | null> => {
   try {
     const prompt = "Ditado popular brasileiro difícil ou incomum. Divida em duas partes. Gere 3 opções erradas que rimem. JSON.";
     const response = await ai.models.generateContent({
@@ -129,6 +131,35 @@ export const generateProverbTask = async (): Promise<ProverbTask | null> => {
     return response.text ? JSON.parse(response.text) : null;
   } catch (e) { return null; }
 };
+
+export const generateDailyWordChallenge = async (): Promise<DailyChallengeData | null> => {
+    try {
+        const prompt = `Gere uma única "Palavra do Dia" para um jogo cognitivo de idosos em Português.
+        A palavra deve ser:
+        1. Comum, mas levemente sofisticada (5 a 8 letras).
+        2. Positiva ou neutra.
+        
+        Também forneça uma dica/definição clara.
+        Retorne JSON.`;
+
+        const response = await ai.models.generateContent({
+            model: MODEL_NAME,
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        word: { type: Type.STRING },
+                        hint: { type: Type.STRING }
+                    },
+                    required: ["word", "hint"]
+                }
+            }
+        });
+        return response.text ? JSON.parse(response.text) : null;
+    } catch (e) { return null; }
+}
 
 // --- UPDATED INFINITE GAME LOGIC (STRICTER PORTUGUESE) ---
 

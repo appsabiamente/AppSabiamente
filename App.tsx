@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect, useRef } from 'react';
-import { Screen, UserStats, Minigame, ThemeId, AvatarId, StoreItem, Achievement, LeaderboardEntry } from './types';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Screen, UserStats, Minigame, ThemeId, AvatarId, StoreItem, Achievement, LeaderboardEntry, Language } from './types';
 import { Video, Star, Brain, Music, Calculator, ClipboardList, Coins, Target, Zap, Activity, Wind, Eye, Square, LayoutGrid, Info, Home, Store, User, RotateCcw, Check, Sparkles, Infinity as InfinityIcon, Lock, Unlock, Grid, Link, Quote, AlertCircle, Type, Grid3X3, Palette, Search, Trophy, Medal, Crown, Ghost, Sun, Gamepad, CheckCircle, XCircle, Box, Copy, TrendingUp, CloudRain, ListOrdered, MousePointerClick, SunMedium, Moon, Cloud, Flower, Settings as SettingsIcon, Users, Clover, ArrowUpCircle, Flame, ThumbsUp, Play, CheckSquare, HeartHandshake, WifiOff, SignalHigh } from 'lucide-react';
 
 import { setMuted } from './services/audioService';
@@ -30,19 +30,25 @@ import {
   MovingHuntGame
 } from './components/NewGames';
 
+const getNextSunday = () => {
+    const d = new Date();
+    d.setDate(d.getDate() + (7 - d.getDay()) % 7);
+    d.setHours(23, 59, 59, 0);
+    return d.toISOString();
+};
+
 const INITIAL_STATS: UserStats = {
   coins: 0,
   streak: 0, 
   totalGamesPlayed: 0,
   level: 1,
   experience: 0,
-  // Date far in the past ensures the first game ever counts as Day 1
   lastPlayedDate: '2000-01-01T00:00:00.000Z', 
   tutorialsSeen: [],
   unlockedThemes: ['garden'],
   unlockedAvatars: ['base'],
   unlockedAchievements: [],
-  unlockedGames: [], // Track purchased/ad-unlocked games
+  unlockedGames: [], 
   currentTheme: 'garden',
   currentAvatar: 'base',
   highScores: {},
@@ -51,7 +57,13 @@ const INITIAL_STATS: UserStats = {
   leaderboard: [],
   lastDailyClaim: null,
   dailyStreak: 0,
-  hasRatedApp: false
+  hasRatedApp: false,
+  language: 'pt',
+  weeklyTickets: 0,
+  raffleWins: 0,
+  nextRaffleDate: getNextSunday(),
+  dailyChallengeLastCompleted: null,
+  dailyChallengesWon: 0
 };
 
 const FAKE_NAMES = [
@@ -106,23 +118,16 @@ const STORE_ITEMS: StoreItem[] = [
 ];
 
 const GAMES: Minigame[] = [
-  // Infinite / Hard
   { id: 'chain', screen: Screen.GAME_WORD_CHAIN, title: 'Corrente', description: 'Palavras', icon: 'Link', category: 'Linguagem', color: 'text-blue-600 bg-blue-100', tutorial: 'Digite palavras da categoria certa.', unlockLevel: 1 },
   { id: 'zen', screen: Screen.GAME_ZEN_FOCUS, title: 'Foco Zen', description: 'Infinito', icon: 'Eye', category: 'Zen', color: 'text-teal-600 bg-teal-100', tutorial: 'Toque apenas nos círculos.', unlockLevel: 1 },
   { id: 'sum', screen: Screen.GAME_SUM_TARGET, title: 'Soma Alvo', description: 'Infinito', icon: 'Target', category: 'Raciocínio', color: 'text-green-600 bg-green-100', tutorial: 'Atinga a soma alvo.', unlockLevel: 1 },
   { id: 'cards', screen: Screen.GAME_CARDS, title: 'Cartas', description: 'Sorte', icon: 'Copy', category: 'Clássico', color: 'text-red-600 bg-red-100', tutorial: 'Maior ou menor?', unlockLevel: 1 },
-
-  // Daily Standards
   { id: 'mem', screen: Screen.GAME_MEMORY, title: 'Memória', description: 'Pares', icon: 'Brain', category: 'Memória', color: 'text-indigo-600 bg-indigo-100', tutorial: 'Encontre os pares.', unlockLevel: 1 },
   { id: 'triv', screen: Screen.GAME_TRIVIA, title: 'Sabedoria', description: 'Quiz', icon: 'Brain', category: 'Linguagem', color: 'text-blue-600 bg-blue-100', tutorial: 'Responda corretamente.', unlockLevel: 1 },
   { id: 'math', screen: Screen.GAME_MATH, title: 'Cálculo', description: 'Compras', icon: 'Calculator', category: 'Raciocínio', color: 'text-emerald-600 bg-emerald-100', tutorial: 'Faça as contas.', unlockLevel: 1 },
   { id: 'prov', screen: Screen.GAME_PROVERB, title: 'Ditados', description: 'Completar', icon: 'Quote', category: 'Linguagem', color: 'text-amber-600 bg-amber-100', tutorial: 'Complete a frase.', unlockLevel: 1 },
-  
-  // Specific Unlocks
   { id: 'patt', screen: Screen.GAME_PATTERN, title: 'Padrões', description: 'Visual', icon: 'Grid3X3', category: 'Memória', color: 'text-purple-600 bg-purple-100', tutorial: 'Repita o padrão.', unlockLevel: 1 },
   { id: 'est', screen: Screen.GAME_ESTIMATE, title: 'Estimativa', description: 'Qtd.', icon: 'Activity', category: 'Raciocínio', color: 'text-orange-600 bg-orange-100', tutorial: 'Estime a quantidade.', unlockLevel: 1 },
-  
-  // UNLOCKABLE GAMES
   { id: 'rot', screen: Screen.GAME_ROTATION, title: 'Rotação', description: 'Espacial', icon: 'RotateCcw', category: 'Raciocínio', color: 'text-cyan-600 bg-cyan-100', tutorial: 'Qual a figura rodada?', unlockAd: true },
   { id: 'rain', screen: Screen.GAME_MATH_RAIN, title: 'Chuva', description: 'Rápido', icon: 'CloudRain', category: 'Raciocínio', color: 'text-blue-600 bg-blue-100', tutorial: 'Resolva antes de cair.', unlockLevel: 3 },
   { id: 'col', screen: Screen.GAME_COLOR_MATCH, title: 'Cores', description: 'Rápido', icon: 'Palette', category: 'Atenção', color: 'text-pink-600 bg-pink-100', tutorial: 'A cor combina?', unlockLevel: 5 },
@@ -130,14 +135,12 @@ const GAMES: Minigame[] = [
   { id: 'hid', screen: Screen.GAME_HIDDEN, title: 'Oculto', description: 'Foco', icon: 'Search', category: 'Atenção', color: 'text-gray-600 bg-gray-200', tutorial: 'Encontre o objeto.', unlockCost: 10000 },
 ];
 
-// Types for Unlock State
 type LockType = 'LEVEL' | 'COINS' | 'AD';
 interface PendingUnlock {
     game: Minigame;
     type: LockType;
 }
 
-// 5 Minutes in milliseconds
 const FORCED_AD_INTERVAL = 5 * 60 * 1000;
 
 export default function App() {
@@ -146,19 +149,15 @@ export default function App() {
   const [activeTutorial, setActiveTutorial] = useState<{title: string, text: string, gameId: string} | null>(null);
   const [victoryData, setVictoryData] = useState<{score: number, gameId: string} | null>(null);
   
-  // Ad System
   const [showAdModal, setShowAdModal] = useState(false);
   const adCallbackRef = useRef<(() => void) | null>(null);
   const [isForcedAd, setIsForcedAd] = useState(false);
   
-  // Forced Ad Logic
   const lastAdTime = useRef<number>(Date.now());
   const [pendingForcedAd, setPendingForcedAd] = useState(false);
 
-  // Connection Check
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
-  // New Unlock Modal System
   const [pendingUnlock, setPendingUnlock] = useState<PendingUnlock | null>(null);
   const [pendingAdReward, setPendingAdReward] = useState<'NONE' | 'GAME_UNLOCK' | 'COINS' | 'GENERIC'>('NONE');
 
@@ -168,12 +167,18 @@ export default function App() {
   const [isRatingCheck, setIsRatingCheck] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem('sabiamente_stats_v8'); // Version bumped to v8 for Avatar changes
+    const saved = localStorage.getItem('sabiamente_stats_v8');
     if (saved) {
         const parsed = JSON.parse(saved);
         if (!parsed.leaderboard) parsed.leaderboard = [];
         if (!parsed.unlockedAvatars) parsed.unlockedAvatars = ['base'];
         if (!parsed.currentAvatar) parsed.currentAvatar = 'base';
+        if (!parsed.language) parsed.language = 'pt';
+        if (parsed.weeklyTickets === undefined) parsed.weeklyTickets = 0;
+        if (parsed.raffleWins === undefined) parsed.raffleWins = 0;
+        if (!parsed.nextRaffleDate) parsed.nextRaffleDate = getNextSunday();
+        if (!parsed.dailyChallengesWon) parsed.dailyChallengesWon = 0;
+        if (!parsed.dailyChallengeLastCompleted) parsed.dailyChallengeLastCompleted = null;
         setStats(prev => ({...prev, ...parsed}));
     } else {
         initLeaderboard(INITIAL_STATS.coins);
@@ -194,7 +199,6 @@ export default function App() {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // Periodic check (Backup for when event listeners might miss specific conditions or for initial state confirmation)
     const interval = setInterval(() => {
         setIsOnline(navigator.onLine);
     }, 5000);
@@ -215,20 +219,17 @@ export default function App() {
       const adTimer = setInterval(() => {
           const now = Date.now();
           if (now - lastAdTime.current > FORCED_AD_INTERVAL) {
-              // Time is up! But are we safe to show it?
               if (isMenuScreen(currentScreen) && !showAdModal && !activeTutorial && !victoryData && !pendingUnlock && !levelUpData) {
                   triggerForcedAd();
               } else {
-                  // User is busy (playing or other modal), mark as pending
                   setPendingForcedAd(true);
               }
           }
-      }, 10000); // Check every 10 seconds
+      }, 10000); 
 
       return () => clearInterval(adTimer);
   }, [currentScreen, showAdModal, activeTutorial, victoryData, pendingUnlock, levelUpData]);
 
-  // Check pending ad when screen changes (e.g. user finishes game and goes HOME)
   useEffect(() => {
       if (pendingForcedAd && isMenuScreen(currentScreen) && !showAdModal && !activeTutorial && !victoryData && !pendingUnlock && !levelUpData) {
           triggerForcedAd();
@@ -240,7 +241,6 @@ export default function App() {
       setShowAdModal(true);
       setPendingForcedAd(false);
   };
-  // -----------------------
 
   const initLeaderboard = (userCoins: number) => {
       const entries: LeaderboardEntry[] = [];
@@ -321,7 +321,7 @@ export default function App() {
 
   const requestAd = (cb: () => void) => {
       adCallbackRef.current = cb;
-      setPendingAdReward('GENERIC'); // Default generic reward
+      setPendingAdReward('GENERIC'); 
       setIsForcedAd(false);
       setShowAdModal(true);
   };
@@ -335,8 +335,6 @@ export default function App() {
   const handleAdClosed = () => {
       setShowAdModal(false);
       setIsForcedAd(false);
-      
-      // Reset timer whenever ANY ad is watched (good UX to not punish users who opt-in)
       lastAdTime.current = Date.now();
       
       if (pendingAdReward === 'GAME_UNLOCK' && pendingUnlock?.game) {
@@ -352,7 +350,6 @@ export default function App() {
           adCallbackRef.current();
           adCallbackRef.current = null;
       }
-      
       setPendingAdReward('NONE');
   };
 
@@ -367,6 +364,16 @@ export default function App() {
       alert("Obrigado por avaliar! +100 Moedas adicionadas.");
   }
 
+  const handleResetProgress = () => {
+      localStorage.removeItem('sabiamente_stats_v8');
+      setStats(INITIAL_STATS);
+      setCurrentScreen(Screen.HOME);
+  };
+
+  const handleLanguageChange = (lang: Language) => {
+      setStats(prev => ({...prev, language: lang}));
+  };
+
   const getCalendarDaysDifference = (lastDateISO: string): number => {
       const now = new Date();
       const last = new Date(lastDateISO);
@@ -375,6 +382,16 @@ export default function App() {
       const msPerDay = 1000 * 60 * 60 * 24;
       const diffTime = currentCalendarDate.getTime() - lastCalendarDate.getTime();
       return Math.floor(diffTime / msPerDay);
+  };
+
+  const handleDailyChallengeWin = (coinsWon: number) => {
+      const today = new Date().toISOString().split('T')[0];
+      setStats(prev => ({
+          ...prev,
+          coins: prev.coins + coinsWon,
+          dailyChallengeLastCompleted: today,
+          dailyChallengesWon: prev.dailyChallengesWon + 1
+      }));
   };
 
   const handleGameComplete = (score: number) => {
@@ -408,13 +425,11 @@ export default function App() {
 
       if (score > 0) {
           const daysDiff = getCalendarDaysDifference(stats.lastPlayedDate);
-
-          if (daysDiff === 0) {
-          } else if (daysDiff === 1) {
+          if (daysDiff === 1) {
               newStreak = stats.streak + 1;
               streakUpdated = true;
               setStreakPopupValue(newStreak);
-          } else {
+          } else if (daysDiff > 1) {
               newStreak = 1;
               streakUpdated = true;
               setStreakPopupValue(1); 
@@ -432,7 +447,6 @@ export default function App() {
             streak: newStreak,
             leaderboard: streakUpdated ? prev.leaderboard.map(e => e.isUser ? {...e, streak: newStreak} : e) : prev.leaderboard
       }));
-      
       updateLeaderboard(score);
   };
 
@@ -455,17 +469,14 @@ export default function App() {
         setPendingUnlock({ game, type: 'LEVEL' });
         return;
     }
-
     if (game.unlockCost && !isSpecialUnlocked) {
         setPendingUnlock({ game, type: 'COINS' });
         return;
     }
-
     if (game.unlockAd && !isSpecialUnlocked) {
         setPendingUnlock({ game, type: 'AD' });
         return;
     }
-
     if (!stats.tutorialsSeen.includes(game.id)) {
         setActiveTutorial({ title: game.title, text: game.tutorial, gameId: game.id });
     } else {
@@ -607,7 +618,7 @@ export default function App() {
         )}
 
         {/* === HEADER === */}
-        {currentScreen === Screen.HOME || currentScreen === Screen.STORE || currentScreen === Screen.PROFILE || currentScreen === Screen.SETTINGS || currentScreen === Screen.RANKING || currentScreen === Screen.BETTING ? (
+        {isMenuScreen(currentScreen) ? (
              <div className="px-6 pt-6 pb-2 flex justify-between items-center z-10">
                 <div onClick={() => setCurrentScreen(Screen.PROFILE)} className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity">
                     <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-md text-brand-primary border-2 border-white">
@@ -635,9 +646,9 @@ export default function App() {
         ) : null}
 
         {/* === CONTENT === */}
-        <div className="flex-grow overflow-y-auto relative no-scrollbar">
+        <div className="flex-grow overflow-y-auto relative no-scrollbar pb-24">
             {currentScreen === Screen.HOME && (
-                <div className="pb-28 px-6 space-y-6">
+                <div className="px-6 space-y-6">
                     <div className="mt-2 relative">
                         <TreeOfMind stats={stats} />
                         
@@ -646,26 +657,6 @@ export default function App() {
                             <Flame size={14} className="fill-orange-500"/>
                             {stats.streak} Dias Seguidos
                         </div>
-                    </div>
-
-                    {/* Quick Shortcuts Bar */}
-                    <div className="grid grid-cols-4 gap-2">
-                        <button onClick={() => setCurrentScreen(Screen.STORE)} className="flex flex-col items-center gap-1 p-2 bg-white rounded-2xl shadow-sm active:scale-95 transition-transform border border-gray-100/50">
-                            <div className="bg-blue-100 p-3 rounded-full text-blue-600"><Store size={20}/></div>
-                            <span className="text-[10px] font-bold text-gray-600">Loja</span>
-                        </button>
-                        <button onClick={() => setCurrentScreen(Screen.BETTING)} className="flex flex-col items-center gap-1 p-2 bg-white rounded-2xl shadow-sm active:scale-95 transition-transform border border-gray-100/50">
-                            <div className="bg-purple-100 p-3 rounded-full text-purple-600"><Clover size={20}/></div>
-                            <span className="text-[10px] font-bold text-gray-600">Roleta</span>
-                        </button>
-                        <button onClick={() => setCurrentScreen(Screen.RANKING)} className="flex flex-col items-center gap-1 p-2 bg-white rounded-2xl shadow-sm active:scale-95 transition-transform border border-gray-100/50">
-                            <div className="bg-yellow-100 p-3 rounded-full text-yellow-600"><Users size={20}/></div>
-                            <span className="text-[10px] font-bold text-gray-600">Ranking</span>
-                        </button>
-                        <button onClick={() => setCurrentScreen(Screen.PROFILE)} className="flex flex-col items-center gap-1 p-2 bg-white rounded-2xl shadow-sm active:scale-95 transition-transform border border-gray-100/50">
-                            <div className="bg-orange-100 p-3 rounded-full text-orange-600"><Medal size={20}/></div>
-                            <span className="text-[10px] font-bold text-gray-600">Conquistas</span>
-                        </button>
                     </div>
                     
                     <div>
@@ -677,7 +668,7 @@ export default function App() {
                             <span className="text-xs font-bold opacity-50 uppercase tracking-wide">Desafie sua mente</span>
                         </div>
                         
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-4 pb-4">
                             {GAMES.map(g => {
                                 const isLevelLocked = g.unlockLevel && stats.level < g.unlockLevel;
                                 const isCostLocked = g.unlockCost && !stats.unlockedGames.includes(g.id);
@@ -737,6 +728,7 @@ export default function App() {
                 </div>
             )}
             
+            {/* ... (Rest of existing Screen rendering logic remains unchanged) ... */}
             {currentScreen === Screen.PROFILE && (
                 <div className="px-6 pb-28 pt-4">
                     <h2 className="text-2xl font-bold mb-6 opacity-90">Suas Conquistas</h2>
@@ -872,10 +864,11 @@ export default function App() {
             {currentScreen === Screen.BETTING && (
                 <Betting 
                     stats={stats} 
-                    onUpdateCoins={(newAmount) => setStats(s => ({...s, coins: newAmount}))} 
+                    onUpdateStats={(newStats) => setStats(s => ({...s, ...newStats}))} 
                     onExit={handleGoHome} 
                     onRequestAd={requestAd}
                     onClaimDaily={handleDailyClaim}
+                    onWinDaily={handleDailyChallengeWin} // Passing the win handler
                 />
             )}
             
@@ -884,31 +877,59 @@ export default function App() {
                     stats={stats} 
                     onToggleSound={toggleSound} 
                     onToggleNotifications={() => setStats(s => ({...s, notificationsEnabled: !s.notificationsEnabled}))}
-                    onResetTutorials={() => setStats(s => ({...s, tutorialsSeen: []}))}
+                    onResetProgress={handleResetProgress}
                     onExit={handleGoHome}
+                    onLanguageChange={handleLanguageChange}
                 />
             )}
 
             {currentScreen !== Screen.HOME && currentScreen !== Screen.STORE && currentScreen !== Screen.PROFILE && currentScreen !== Screen.SETTINGS && currentScreen !== Screen.RANKING && currentScreen !== Screen.BETTING && renderGame()}
         </div>
 
-        {/* === NAV === */}
-        {(currentScreen === Screen.HOME || currentScreen === Screen.STORE || currentScreen === Screen.PROFILE || currentScreen === Screen.SETTINGS || currentScreen === Screen.RANKING || currentScreen === Screen.BETTING) && (
-            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-white rounded-full shadow-2xl p-2 flex gap-2 z-20 border border-gray-100">
-                <button onClick={() => setCurrentScreen(Screen.HOME)} className={`p-4 rounded-full transition-all ${currentScreen === Screen.HOME ? 'bg-gray-900 text-white' : 'text-gray-400 hover:bg-gray-50'}`}>
-                    <Home size={22} />
+        {/* === BOTTOM NAVIGATION BAR === */}
+        {isMenuScreen(currentScreen) && (
+            <div className="absolute bottom-0 w-full bg-white/95 backdrop-blur-md border-t border-gray-100 flex justify-around items-center p-3 pb-5 z-40 shadow-[0_-5px_20px_rgba(0,0,0,0.05)]">
+                <button 
+                    onClick={() => setCurrentScreen(Screen.HOME)} 
+                    className={`flex flex-col items-center gap-1 transition-colors ${currentScreen === Screen.HOME ? 'text-brand-primary scale-105' : 'text-gray-400 hover:text-gray-600'}`}
+                >
+                    <Home size={24} fill={currentScreen === Screen.HOME ? "currentColor" : "none"} className={currentScreen === Screen.HOME ? 'fill-current' : ''} />
+                    <span className="text-[10px] font-bold">Início</span>
                 </button>
-                <button onClick={() => setCurrentScreen(Screen.STORE)} className={`p-4 rounded-full transition-all ${currentScreen === Screen.STORE ? 'bg-gray-900 text-white' : 'text-gray-400 hover:bg-gray-50'}`}>
-                    <Store size={22} />
+                
+                <button 
+                    onClick={() => setCurrentScreen(Screen.STORE)} 
+                    className={`flex flex-col items-center gap-1 transition-colors ${currentScreen === Screen.STORE ? 'text-blue-600 scale-105' : 'text-gray-400 hover:text-gray-600'}`}
+                >
+                    <Store size={24} fill={currentScreen === Screen.STORE ? "currentColor" : "none"} />
+                    <span className="text-[10px] font-bold">Loja</span>
                 </button>
-                <button onClick={() => setCurrentScreen(Screen.BETTING)} className={`p-4 rounded-full transition-all ${currentScreen === Screen.BETTING ? 'bg-gray-900 text-white' : 'text-gray-400 hover:bg-gray-50'}`}>
-                    <Clover size={22} />
+                
+                <button 
+                    onClick={() => setCurrentScreen(Screen.BETTING)} 
+                    className={`flex flex-col items-center gap-1 transition-colors ${currentScreen === Screen.BETTING ? 'text-purple-600 scale-105' : 'text-gray-400 hover:text-gray-600'}`}
+                >
+                    <div className="relative">
+                        <Clover size={24} fill={currentScreen === Screen.BETTING ? "currentColor" : "none"}/>
+                        {stats.dailyStreak > 0 && currentScreen !== Screen.BETTING && <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>}
+                    </div>
+                    <span className="text-[10px] font-bold">Sorte</span>
                 </button>
-                <button onClick={() => setCurrentScreen(Screen.RANKING)} className={`p-4 rounded-full transition-all ${currentScreen === Screen.RANKING ? 'bg-gray-900 text-white' : 'text-gray-400 hover:bg-gray-50'}`}>
-                    <Users size={22} />
+                
+                <button 
+                    onClick={() => setCurrentScreen(Screen.RANKING)} 
+                    className={`flex flex-col items-center gap-1 transition-colors ${currentScreen === Screen.RANKING ? 'text-yellow-600 scale-105' : 'text-gray-400 hover:text-gray-600'}`}
+                >
+                    <Trophy size={24} fill={currentScreen === Screen.RANKING ? "currentColor" : "none"}/>
+                    <span className="text-[10px] font-bold">Rank</span>
                 </button>
-                <button onClick={() => setCurrentScreen(Screen.PROFILE)} className={`p-4 rounded-full transition-all ${currentScreen === Screen.PROFILE ? 'bg-gray-900 text-white' : 'text-gray-400 hover:bg-gray-50'}`}>
-                    <Trophy size={22} />
+                
+                <button 
+                    onClick={() => setCurrentScreen(Screen.PROFILE)} 
+                    className={`flex flex-col items-center gap-1 transition-colors ${currentScreen === Screen.PROFILE ? 'text-orange-600 scale-105' : 'text-gray-400 hover:text-gray-600'}`}
+                >
+                    <User size={24} fill={currentScreen === Screen.PROFILE ? "currentColor" : "none"}/>
+                    <span className="text-[10px] font-bold">Perfil</span>
                 </button>
             </div>
         )}

@@ -37,6 +37,7 @@ export enum Screen {
 
 export type ThemeId = 'garden' | 'ocean' | 'sunset' | 'lavender' | 'midnight';
 export type AvatarId = 'base' | 'medal' | 'trophy' | 'star' | 'lion' | 'dragon';
+export type Language = 'pt' | 'en' | 'es';
 
 export interface Achievement {
   id: string;
@@ -79,6 +80,16 @@ export interface UserStats {
   lastDailyClaim: string | null; // ISO Date string of last claim
   dailyStreak: number; // Current day index (0-6)
   hasRatedApp: boolean; // Tracks if user rated the app
+  language: Language; // New Language preference
+  
+  // Weekly Raffle Props
+  weeklyTickets: number;
+  raffleWins: number;
+  nextRaffleDate: string; // ISO String for next draw target
+
+  // Daily Challenge Props
+  dailyChallengeLastCompleted: string | null; // Date String YYYY-MM-DD
+  dailyChallengesWon: number;
 }
 
 export interface Minigame {
@@ -133,4 +144,9 @@ export interface ProverbTask {
   part1: string;
   part2: string;
   options: string[];
+}
+
+export interface DailyChallengeData {
+    word: string;
+    hint: string;
 }

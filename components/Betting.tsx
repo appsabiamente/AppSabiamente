@@ -1,14 +1,17 @@
+
 import React, { useState, useEffect } from 'react';
 import { UserStats } from '../types';
-import { Clover, Coins, Dices, RotateCcw, Video, Calendar, Check, Lock } from 'lucide-react';
+import { Clover, Coins, Dices, RotateCcw, Video, Calendar, Check, Lock, Ticket, Timer, Gift } from 'lucide-react';
 import { playSuccessSound, playFailureSound } from '../services/audioService';
+import DailyChallenge from './DailyChallenge';
 
 interface BettingProps {
     stats: UserStats;
-    onUpdateCoins: (newAmount: number) => void;
+    onUpdateStats: (newStats: Partial<UserStats>) => void;
     onExit: () => void;
     onRequestAd: (cb: () => void) => void;
     onClaimDaily: (amount: number) => void;
+    onWinDaily: (amount: number) => void;
 }
 
 const SEGMENTS = [
@@ -20,7 +23,14 @@ const SEGMENTS = [
 
 const DAILY_REWARDS = [10, 20, 30, 50, 80, 100, 500];
 
-const Betting: React.FC<BettingProps> = ({ stats, onUpdateCoins, onRequestAd, onClaimDaily }) => {
+// Weekly Raffle Prizes
+const RAFFLE_JACKPOTS = [
+    { name: "Ouro", amount: 5000, chance: 0.001 },   // 0.1% per ticket
+    { name: "Prata", amount: 2500, chance: 0.005 }, // 0.5% per ticket
+    { name: "Bronze", amount: 1000, chance: 0.010 }  // 1.0% per ticket
+];
+
+const Betting: React.FC<BettingProps> = ({ stats, onUpdateStats, onRequestAd, onClaimDaily, onWinDaily }) => {
     const [betAmount, setBetAmount] = useState<number>(10);
     const [isSpinning, setIsSpinning] = useState(false);
     const [rotation, setRotation] = useState(0);
@@ -28,12 +38,102 @@ const Betting: React.FC<BettingProps> = ({ stats, onUpdateCoins, onRequestAd, on
     const [lastWin, setLastWin] = useState<number | null>(null);
     const [adUnlocked, setAdUnlocked] = useState(false);
     const [canClaimDaily, setCanClaimDaily] = useState(false);
+    
+    // Raffle State
+    const [timeLeftRaffle, setTimeLeftRaffle] = useState("");
+    const [isCheckingDraw, setIsCheckingDraw] = useState(false);
 
     useEffect(() => {
         const today = new Date().toDateString();
         // Allow claim if never claimed OR last claim was NOT today
         setCanClaimDaily(!stats.lastDailyClaim || stats.lastDailyClaim !== today);
-    }, [stats.lastDailyClaim]);
+        
+        checkRaffleStatus();
+        const t = setInterval(() => {
+            calculateRaffleTimer();
+        }, 1000);
+        return () => clearInterval(t);
+    }, [stats.lastDailyClaim, stats.nextRaffleDate]);
+
+    const calculateRaffleTimer = () => {
+        const now = new Date().getTime();
+        const target = new Date(stats.nextRaffleDate).getTime();
+        const diff = target - now;
+
+        if (diff <= 0) {
+            checkRaffleStatus(); // Trigger check if time passed
+            return;
+        }
+
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        
+        setTimeLeftRaffle(`${days}d ${hours}h ${minutes}m`);
+    };
+
+    const getNextSundayDate = () => {
+        const d = new Date();
+        d.setDate(d.getDate() + (7 - d.getDay()) % 7);
+        d.setHours(23, 59, 59, 0);
+        // If today is Sunday and it's already late, move to next week? 
+        // For simplicity, just add 7 days if current date > target
+        if (d.getTime() <= new Date().getTime()) {
+             d.setDate(d.getDate() + 7);
+        }
+        return d.toISOString();
+    }
+
+    const checkRaffleStatus = () => {
+        const now = new Date().getTime();
+        const target = new Date(stats.nextRaffleDate).getTime();
+
+        if (now > target) {
+            // TIME FOR DRAW!
+            setIsCheckingDraw(true);
+            setTimeout(() => {
+                let winAmount = 0;
+                let prizeName = "";
+                let didWin = false;
+
+                // Simple simulation: Each ticket rolls for prizes
+                // A user can theoretically win multiple prizes, but we'll cap at best win for simplicity
+                for (let i = 0; i < stats.weeklyTickets; i++) {
+                    const roll = Math.random();
+                    if (roll < RAFFLE_JACKPOTS[0].chance) { winAmount = Math.max(winAmount, RAFFLE_JACKPOTS[0].amount); prizeName="Ouro"; didWin=true; }
+                    else if (roll < RAFFLE_JACKPOTS[1].chance) { winAmount = Math.max(winAmount, RAFFLE_JACKPOTS[1].amount); prizeName = prizeName === "Ouro" ? "Ouro" : "Prata"; didWin=true;}
+                    else if (roll < RAFFLE_JACKPOTS[2].chance) { winAmount = Math.max(winAmount, RAFFLE_JACKPOTS[2].amount); prizeName = (prizeName === "Ouro" || prizeName === "Prata") ? prizeName : "Bronze"; didWin=true;}
+                }
+
+                if (didWin) {
+                    playSuccessSound();
+                    alert(`PARABÉNS! SEU CUPOM FOI SORTEADO!\n\nPrêmio Jackpot ${prizeName}: +${winAmount} Moedas!`);
+                    onUpdateStats({
+                        coins: stats.coins + winAmount,
+                        weeklyTickets: 0,
+                        raffleWins: stats.raffleWins + 1,
+                        nextRaffleDate: getNextSundayDate()
+                    });
+                } else {
+                    if (stats.weeklyTickets > 0) {
+                        alert(`O sorteio aconteceu, mas seus ${stats.weeklyTickets} cupons não foram premiados desta vez.\nBoa sorte na próxima semana!`);
+                    }
+                    onUpdateStats({
+                        weeklyTickets: 0,
+                        nextRaffleDate: getNextSundayDate()
+                    });
+                }
+                setIsCheckingDraw(false);
+            }, 2000);
+        }
+    };
+
+    const handleBuyTicket = () => {
+        onRequestAd(() => {
+            onUpdateStats({ weeklyTickets: stats.weeklyTickets + 1 });
+            alert("Cupom Adicionado! Boa sorte no sorteio semanal.");
+        });
+    };
 
     const handleUnlock = () => {
         onRequestAd(() => {
@@ -55,7 +155,7 @@ const Betting: React.FC<BettingProps> = ({ stats, onUpdateCoins, onRequestAd, on
 
         // Deduct immediately
         const currentCoins = stats.coins - betAmount;
-        onUpdateCoins(currentCoins);
+        onUpdateStats({ coins: currentCoins });
 
         // Determine result
         const rand = Math.random();
@@ -86,7 +186,7 @@ const Betting: React.FC<BettingProps> = ({ stats, onUpdateCoins, onRequestAd, on
             if (segment.multiplier > 0) {
                 playSuccessSound();
                 const winnings = betAmount * segment.multiplier;
-                onUpdateCoins(currentCoins + winnings);
+                onUpdateStats({ coins: currentCoins + winnings });
                 setLastWin(winnings);
                 setResultMessage(`GANHOU! ${winnings} MOEDAS!`);
             } else {
@@ -140,7 +240,63 @@ const Betting: React.FC<BettingProps> = ({ stats, onUpdateCoins, onRequestAd, on
                 </div>
             </div>
 
-            <div className="flex items-center gap-3">
+            {/* Daily Challenge Component (Moved Here) */}
+            <DailyChallenge 
+                stats={stats} 
+                onWin={onWinDaily} 
+                onRequestAd={onRequestAd} 
+            />
+
+            {/* WEEKLY RAFFLE SECTION */}
+            <div className="bg-gradient-to-br from-yellow-500 to-orange-600 p-6 rounded-3xl shadow-lg text-white relative overflow-hidden border-2 border-yellow-300">
+                <div className="absolute top-0 right-0 p-4 opacity-20"><Gift size={80}/></div>
+                
+                <div className="relative z-10">
+                    <div className="flex justify-between items-start mb-4">
+                        <div>
+                            <h3 className="font-black text-2xl flex items-center gap-2 text-white drop-shadow-md">
+                                <Ticket size={24} className="fill-white text-yellow-600"/> Mega Sorteio
+                            </h3>
+                            <p className="text-yellow-100 text-sm font-medium">Sorteio automático todo domingo!</p>
+                        </div>
+                        <div className="text-right bg-black/20 p-2 rounded-lg backdrop-blur-sm">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-yellow-200 flex items-center gap-1 justify-end"><Timer size={10}/> Sorteio em</p>
+                            <p className="font-mono font-bold text-lg leading-none">{isCheckingDraw ? 'SORTEANDO...' : timeLeftRaffle}</p>
+                        </div>
+                    </div>
+
+                    <div className="bg-white/10 rounded-2xl p-4 mb-4 backdrop-blur-sm border border-white/20">
+                        <div className="flex justify-between items-center text-sm mb-2">
+                            <span>🏆 Jackpot Ouro</span>
+                            <span className="font-bold text-yellow-200">5.000 Moedas</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm mb-2">
+                            <span>🥈 Jackpot Prata</span>
+                            <span className="font-bold text-gray-200">2.500 Moedas</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                            <span>🥉 Jackpot Bronze</span>
+                            <span className="font-bold text-orange-200">1.000 Moedas</span>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-4">
+                        <div className="bg-white text-orange-600 px-4 py-3 rounded-2xl font-bold flex flex-col items-center min-w-[80px]">
+                            <span className="text-xs uppercase text-gray-400">Seus Cupons</span>
+                            <span className="text-2xl font-black">{stats.weeklyTickets}</span>
+                        </div>
+                        <button 
+                            onClick={handleBuyTicket}
+                            className="flex-grow bg-gray-900 hover:bg-gray-800 text-white py-4 rounded-2xl font-bold shadow-lg flex items-center justify-center gap-2 transition-transform active:scale-95"
+                        >
+                            <Video size={20}/> Pegar Cupom
+                        </button>
+                    </div>
+                    <p className="text-center text-[10px] mt-3 opacity-70">Quanto mais cupons, maior a chance. Sem limite de compra!</p>
+                </div>
+            </div>
+
+            <div className="flex items-center gap-3 mt-8">
                 <div className="bg-purple-100 p-3 rounded-full text-purple-600">
                     <Dices size={28} />
                 </div>
