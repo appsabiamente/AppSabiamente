@@ -168,7 +168,7 @@ export default function App() {
   const [stats, setStats] = useState<UserStats>(INITIAL_STATS);
   const [activeTutorial, setActiveTutorial] = useState<{title: string, text: string, gameId: string} | null>(null);
   const [victoryData, setVictoryData] = useState<{score: number, gameId: string} | null>(null);
-  const [imgError, setImgError] = useState(false); // To handle broken profile image
+  const [imgError, setImgError] = useState(false); 
   
   const [showAdModal, setShowAdModal] = useState(false);
   const adCallbackRef = useRef<(() => void) | null>(null);
@@ -499,13 +499,11 @@ export default function App() {
       setStats(prev => ({...prev, language: lang}));
   };
 
-  // CORRECT CALENDAR COMPARISON FOR STREAK
   const getCalendarDaysDifference = (lastDateISO: string): number => {
       if (!lastDateISO) return 999;
       const now = new Date();
       const last = new Date(lastDateISO);
       
-      // Reset time to midnight for accurate day difference
       const currentCalendarDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const lastCalendarDate = new Date(last.getFullYear(), last.getMonth(), last.getDate());
       
@@ -599,6 +597,7 @@ export default function App() {
       setCurrentScreen(Screen.HOME);
   };
 
+  // ... (rest of logic same as before) ...
   const tryStartGame = (game: Minigame) => {
     const isSpecialUnlocked = stats.unlockedGames.includes(game.id);
     if (game.unlockLevel && stats.level < game.unlockLevel) {
@@ -761,6 +760,7 @@ export default function App() {
         ) : null}
 
         <div className="flex-grow overflow-y-auto relative no-scrollbar pb-24">
+            {/* ... Home Content same ... */}
             {currentScreen === Screen.HOME && (
                 <div className="px-6 space-y-6">
                     <div className="mt-2 relative">
@@ -845,21 +845,12 @@ export default function App() {
             
             {currentScreen === Screen.PROFILE && (
                 <div className="px-6 pb-28 pt-4">
+                    {/* CHANGED: Profile Header with text logo */}
                     <div className="flex flex-col items-center justify-center mb-8 animate-in zoom-in">
-                        {/* Profile Image with Fallback */}
-                        {!imgError ? (
-                            <img 
-                                src="/logo.png" 
-                                alt="SábiaMente" 
-                                className="h-32 mb-4 object-contain drop-shadow-md"
-                                onError={() => setImgError(true)}
-                            />
-                        ) : (
-                            <div className="h-32 w-32 bg-brand-primary/10 rounded-full flex items-center justify-center mb-4">
-                                <ImageIcon size={64} className="text-brand-primary opacity-50"/>
-                            </div>
-                        )}
-                        
+                        <h1 className="text-5xl font-black tracking-tighter mb-4 filter drop-shadow-sm select-none">
+                            <span className="text-brand-primary">Sábia</span>
+                            <span className="text-brand-secondary">Mente</span>
+                        </h1>
                         <h2 className="text-2xl font-bold opacity-90 text-gray-800">Seu Perfil</h2>
                     </div>
 
@@ -898,6 +889,7 @@ export default function App() {
                 </div>
             )}
 
+            {/* ... other screens (Store, Ranking, Betting, Settings) ... */}
             {currentScreen === Screen.STORE && (
                 <div className="px-6 pb-28 pt-4">
                     {/* ... store content mostly same ... */}
@@ -1061,10 +1053,7 @@ export default function App() {
             </div>
         )}
 
-        {/* MODALS (Ad, Unlock, Streak, etc.) */}
-        {/* ... (Existing modals preserved but omitted for brevity as they didn't change logic, just structure) ... */}
-        {/* RE-INSERTING KEY MODALS FOR COMPLETENESS IN XML OUTPUT TO AVOID CUTOFFS */}
-        
+        {/* ... Modals (kept identical) ... */}
         {pendingUnlock && (
              <div className="absolute inset-0 z-[70] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md animate-in fade-in">
                  <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl relative">

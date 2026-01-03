@@ -24,11 +24,10 @@ const SEGMENTS = [
 
 const DAILY_REWARDS = [10, 20, 30, 50, 80, 100, 500];
 
-// Weekly Raffle Prizes
 const RAFFLE_JACKPOTS = [
-    { name: "Ouro", amount: 5000, chance: 0.001 },   // 0.1% per ticket
-    { name: "Prata", amount: 2500, chance: 0.005 }, // 0.5% per ticket
-    { name: "Bronze", amount: 1000, chance: 0.010 }  // 1.0% per ticket
+    { name: "Ouro", amount: 5000, chance: 0.001 },   
+    { name: "Prata", amount: 2500, chance: 0.005 }, 
+    { name: "Bronze", amount: 1000, chance: 0.010 }  
 ];
 
 const Betting: React.FC<BettingProps> = ({ stats, onUpdateStats, onRequestAd, onClaimDaily, onWinDaily }) => {
@@ -40,15 +39,12 @@ const Betting: React.FC<BettingProps> = ({ stats, onUpdateStats, onRequestAd, on
     const [adUnlocked, setAdUnlocked] = useState(false);
     const [canClaimDaily, setCanClaimDaily] = useState(false);
     
-    // Raffle State
     const [timeLeftRaffle, setTimeLeftRaffle] = useState("");
     const [isCheckingDraw, setIsCheckingDraw] = useState(false);
 
     useEffect(() => {
         const today = new Date().toDateString();
-        // Allow claim if never claimed OR last claim was NOT today
         setCanClaimDaily(!stats.lastDailyClaim || stats.lastDailyClaim !== today);
-        
         checkRaffleStatus();
         const t = setInterval(() => {
             calculateRaffleTimer();
@@ -62,7 +58,7 @@ const Betting: React.FC<BettingProps> = ({ stats, onUpdateStats, onRequestAd, on
         const diff = target - now;
 
         if (diff <= 0) {
-            checkRaffleStatus(); // Trigger check if time passed
+            checkRaffleStatus(); 
             return;
         }
 
@@ -88,14 +84,12 @@ const Betting: React.FC<BettingProps> = ({ stats, onUpdateStats, onRequestAd, on
         const target = new Date(stats.nextRaffleDate).getTime();
 
         if (now > target) {
-            // TIME FOR DRAW!
             setIsCheckingDraw(true);
             setTimeout(() => {
                 let winAmount = 0;
                 let prizeName = "";
                 let didWin = false;
 
-                // Simple simulation: Each ticket rolls for prizes
                 for (let i = 0; i < stats.weeklyTickets; i++) {
                     const roll = Math.random();
                     if (roll < RAFFLE_JACKPOTS[0].chance) { winAmount = Math.max(winAmount, RAFFLE_JACKPOTS[0].amount); prizeName="Ouro"; didWin=true; }
@@ -152,7 +146,6 @@ const Betting: React.FC<BettingProps> = ({ stats, onUpdateStats, onRequestAd, on
         setResultMessage(null);
         setLastWin(null);
 
-        // Deduct immediately
         const currentCoins = stats.coins - betAmount;
         onUpdateStats({ coins: currentCoins });
 
@@ -169,39 +162,32 @@ const Betting: React.FC<BettingProps> = ({ stats, onUpdateStats, onRequestAd, on
             }
         }
 
-        // Calculation:
-        // Each segment is 360 / 4 = 90 deg.
-        // Index 0: 0-90 (Red 0x)
-        // Index 1: 90-180 (Blue 2x)
-        // Index 2: 180-270 (Green 5x)
-        // Index 3: 270-360 (Yellow 10x)
-        // To point at a segment, we need the POINTER (at top) to land there.
-        // If pointer is at 0 (top), rotating the WHEEL moves the segments.
-        // We need to calculate cumulative rotation to add to current rotation state.
+        const segmentArc = 360 / SEGMENTS.length; // 90 degrees per segment
         
-        const segmentArc = 360 / SEGMENTS.length;
-        const randomOffset = Math.random() * (segmentArc - 10) + 5; // Add randomness inside segment
+        // We want the SELECTED segment to end up at the TOP (0 degrees).
+        // Segment 0 is rendered from 0 to 90deg. Center is 45deg.
+        // To bring center (45) to top (0), we need to rotate BACKWARDS by 45deg (or forward by 315).
+        // Target Rotation Angle = - (Index * 90 + 45).
+        // Adding 360 * 5 ensures multiple spins.
         
-        // Calculate where the wheel needs to land to point at the selected segment
-        // Note: The pointer is at top (0 deg). 
-        // If we want segment 0 (0-90 deg) to be at top, we rotate -45 deg? 
-        // Actually simpler: Just rotate a multiple of 360 + specific angle.
-        // Target Angle relative to 0: 360 - (Index * Arc + Arc/2)
+        const index = selectedSegmentIndex;
+        const offsetToCenter = 45; 
+        const targetAngle = -(index * segmentArc + offsetToCenter); 
         
-        const spins = 5; // Minimum full spins
-        const baseTarget = 360 * spins;
+        // Add random jitter within the segment (+/- 40deg)
+        const jitter = (Math.random() * 80) - 40;
         
-        // Target rotation to land specific index under pointer at 0 deg (top)
-        // e.g. Index 0 is at 0-90deg on the wheel image. To get it to top, we rotate roughly 360-45 = 315?
-        // Let's rely on relative calculation:
-        // Current Angle % 360 gives current position.
-        // We add (360 - current % 360) to reset to 0, then add target.
+        // Calculate the total rotation to add to current rotation state
+        // We want final position % 360 to approximate targetAngle % 360.
+        // But we want to spin forward (positive addition).
         
-        const targetAngleForIndex = 360 - (selectedSegmentIndex * segmentArc) - (segmentArc / 2); // Center of segment
-        const totalRotationNeeded = baseTarget + targetAngleForIndex + (Math.random() * 20 - 10); // + jitter
-
-        // IMPORTANT: Add to EXISTING rotation to ensure smooth forward spin
-        setRotation(prev => prev + totalRotationNeeded);
+        const spins = 5;
+        const currentMod = rotation % 360;
+        const dist = (targetAngle - currentMod + jitter); 
+        // Normalize dist to be positive for forward spin + full spins
+        const forwardDist = ((dist % 360) + 360) % 360 + (360 * spins);
+        
+        setRotation(prev => prev + forwardDist);
 
         setTimeout(() => {
             setIsSpinning(false);
@@ -265,14 +251,12 @@ const Betting: React.FC<BettingProps> = ({ stats, onUpdateStats, onRequestAd, on
                 </div>
             </div>
 
-            {/* Daily Challenge Component */}
             <DailyChallenge 
                 stats={stats} 
                 onWin={onWinDaily} 
                 onRequestAd={onRequestAd} 
             />
 
-            {/* WEEKLY RAFFLE SECTION */}
             <div className="bg-gradient-to-br from-yellow-500 to-orange-600 p-6 rounded-3xl shadow-lg text-white relative overflow-hidden border-2 border-yellow-300">
                 <div className="absolute top-0 right-0 p-4 opacity-20"><Gift size={80}/></div>
                 
