@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Screen, UserStats, Minigame, ThemeId, AvatarId, StoreItem, Achievement, LeaderboardEntry, Language } from './types';
-import { Video, Star, Brain, Music, Calculator, ClipboardList, Coins, Target, Zap, Activity, Wind, Eye, Square, LayoutGrid, Info, Home, Store, User, RotateCcw, Check, Sparkles, Infinity as InfinityIcon, Lock, Unlock, Grid, Link, Quote, AlertCircle, Type, Grid3X3, Palette, Search, Trophy, Medal, Crown, Ghost, Sun, Gamepad, CheckCircle, XCircle, Box, Copy, TrendingUp, CloudRain, ListOrdered, MousePointerClick, SunMedium, Moon, Cloud, Flower, Settings as SettingsIcon, Users, Clover, ArrowUpCircle, Flame, ThumbsUp, Play, CheckSquare, HeartHandshake, WifiOff, SignalHigh, Book, Feather, Leaf, Edit3, Image as ImageIcon } from 'lucide-react';
+import { Video, Star, Brain, Music, Calculator, ClipboardList, Coins, Target, Zap, Activity, Wind, Eye, Square, LayoutGrid, Info, Home, Store, User, RotateCcw, Check, Sparkles, Infinity as InfinityIcon, Lock, Unlock, Grid, Link, Quote, AlertCircle, Type, Grid3X3, Palette, Search, Trophy, Medal, Crown, Ghost, Sun, Gamepad, CheckCircle, XCircle, Box, Copy, TrendingUp, CloudRain, ListOrdered, MousePointerClick, SunMedium, Moon, Cloud, Flower, Settings as SettingsIcon, Users, Clover, ArrowUpCircle, Flame, ThumbsUp, Play, CheckSquare, HeartHandshake, WifiOff, SignalHigh, Book, Feather, Leaf, Edit3, Image as ImageIcon, Send } from 'lucide-react';
 
 import { setMuted, playClickSound, playFanfare, playCelebrationSound, playMagicalSound } from './services/audioService';
 import { triggerFireworks, triggerConfettiCannon, triggerCentralBurst } from './services/celebrationService';
@@ -189,6 +189,9 @@ export default function App() {
   
   const [isRatingCheck, setIsRatingCheck] = useState(false);
   const [isRaining, setIsRaining] = useState(false);
+
+  // New state for name editing feedback
+  const [nameSaved, setNameSaved] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem('sabiamente_stats_v8');
@@ -597,7 +600,6 @@ export default function App() {
       setCurrentScreen(Screen.HOME);
   };
 
-  // ... (rest of logic same as before) ...
   const tryStartGame = (game: Minigame) => {
     const isSpecialUnlocked = stats.unlockedGames.includes(game.id);
     if (game.unlockLevel && stats.level < game.unlockLevel) {
@@ -671,6 +673,15 @@ export default function App() {
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const newName = e.target.value;
       setStatsSynced(s => ({ ...s, userName: newName }));
+      setNameSaved(false);
+  };
+
+  const handleSaveName = () => {
+      if (stats.userName.trim()) {
+          playCelebrationSound();
+          setNameSaved(true);
+          setTimeout(() => setNameSaved(false), 2000);
+      }
   };
 
   const renderGame = () => {
@@ -760,7 +771,6 @@ export default function App() {
         ) : null}
 
         <div className="flex-grow overflow-y-auto relative no-scrollbar pb-24">
-            {/* ... Home Content same ... */}
             {currentScreen === Screen.HOME && (
                 <div className="px-6 space-y-6">
                     <div className="mt-2 relative">
@@ -845,7 +855,6 @@ export default function App() {
             
             {currentScreen === Screen.PROFILE && (
                 <div className="px-6 pb-28 pt-4">
-                    {/* CHANGED: Profile Header with text logo */}
                     <div className="flex flex-col items-center justify-center mb-8 animate-in zoom-in">
                         <h1 className="text-5xl font-black tracking-tighter mb-4 filter drop-shadow-sm select-none">
                             <span className="text-brand-primary">Sábia</span>
@@ -858,13 +867,21 @@ export default function App() {
                         <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1">
                             <Edit3 size={14}/> Como gostaria de ser chamado?
                         </label>
-                        <input 
-                            type="text" 
-                            value={stats.userName} 
-                            onChange={handleNameChange} 
-                            placeholder="Digite seu nome aqui"
-                            className="w-full text-xl font-bold text-gray-800 border-b-2 border-gray-200 focus:border-brand-primary outline-none py-2 placeholder:text-gray-300 bg-transparent transition-colors"
-                        />
+                        <div className="flex items-center gap-2">
+                            <input 
+                                type="text" 
+                                value={stats.userName} 
+                                onChange={handleNameChange} 
+                                placeholder="Digite seu nome aqui"
+                                className="flex-grow text-xl font-bold text-gray-800 border-b-2 border-gray-200 focus:border-brand-primary outline-none py-2 placeholder:text-gray-300 bg-transparent transition-colors"
+                            />
+                            <button 
+                                onClick={handleSaveName}
+                                className={`p-3 rounded-xl transition-all ${nameSaved ? 'bg-green-500 text-white' : 'bg-brand-primary text-white hover:bg-brand-primary/90'}`}
+                            >
+                                {nameSaved ? <Check size={20}/> : <Send size={20}/>}
+                            </button>
+                        </div>
                     </div>
 
                     <h3 className="text-xl font-bold mb-4 opacity-90 text-gray-800 flex items-center gap-2"><Trophy size={20} className="text-yellow-500"/> Suas Conquistas</h3>
@@ -889,10 +906,8 @@ export default function App() {
                 </div>
             )}
 
-            {/* ... other screens (Store, Ranking, Betting, Settings) ... */}
             {currentScreen === Screen.STORE && (
                 <div className="px-6 pb-28 pt-4">
-                    {/* ... store content mostly same ... */}
                     <h2 className="text-2xl font-bold mb-6 opacity-90">Loja</h2>
                     <div className="mb-4">
                          <button onClick={watchAdForCoins} className="w-full bg-gradient-to-r from-yellow-400 to-orange-500 text-white p-4 rounded-2xl shadow-lg flex items-center justify-between font-bold text-lg hover:scale-[1.02] transition-transform">

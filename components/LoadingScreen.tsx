@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Loader2, Sparkles, Brain } from 'lucide-react';
 
@@ -11,7 +12,11 @@ const TIPS = [
     "Socializar é um ótimo exercício cognitivo."
 ];
 
-export const LoadingScreen: React.FC = () => {
+interface LoadingScreenProps {
+    message?: string;
+}
+
+export const LoadingScreen: React.FC<LoadingScreenProps> = ({ message = "Carregando Sabedoria..." }) => {
     const [tip, setTip] = useState(TIPS[0]);
 
     useEffect(() => {
@@ -28,7 +33,7 @@ export const LoadingScreen: React.FC = () => {
                 <Brain size={64} className="text-brand-primary relative z-10 animate-bounce" />
             </div>
             
-            <h3 className="text-xl font-bold text-gray-800 mb-2">Carregando Sabedoria...</h3>
+            <h3 className="text-xl font-bold text-gray-800 mb-2">{message}</h3>
             <Loader2 className="animate-spin text-brand-secondary mb-8" size={32} />
             
             <div className="bg-white p-6 rounded-2xl shadow-soft max-w-xs border border-gray-100">

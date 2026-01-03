@@ -156,7 +156,7 @@ export const WordChainGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
             }
         } else {
             playFailureSound(0);
-            alert(`FIM DE JOGO! ${res.message}.`);
+            alert(`FIM DE JOGO! ${res.message}`);
             onComplete(0);
         }
         setLoading(false);
@@ -449,7 +449,7 @@ export const SumTargetGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
             />
             
             {showVictory && (
-                <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-50 p-6 animate-in fade-in">
+                <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-50 p-6 animate-in fade-in" style={{pointerEvents: 'auto'}}>
                     <div className="bg-white rounded-3xl p-8 w-full max-w-sm text-center shadow-2xl">
                         <Trophy className="mx-auto text-yellow-500 mb-4 animate-bounce" size={64}/>
                         <h2 className="text-2xl font-black text-gray-800 mb-2">Alvo Atingido!</h2>
@@ -661,11 +661,13 @@ export const EstimateGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
     const [items, setItems] = useState<any[]>([]);
     const [phase, setPhase] = useState<'show'|'guess'>('show');
     const [score, setScore] = useState(0);
+    const [hint, setHint] = useState<string | null>(null);
 
     useEffect(() => { startRound(); }, []);
 
     const startRound = () => {
         setPhase('show');
+        setHint(null);
         // DIFFICULTY SCALING: Increase max items based on score
         const difficulty = Math.floor(score / 10);
         const minItems = 5 + difficulty;
@@ -706,7 +708,7 @@ export const EstimateGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
 
     const handleAdvantage = () => {
          onRequestAd(() => {
-             alert(`A quantidade está entre ${Math.max(0, count - 2)} e ${count + 2}`);
+             setHint(`A quantidade está entre ${Math.max(0, count - 2)} e ${count + 2}`);
          });
     }
 
@@ -741,14 +743,18 @@ export const EstimateGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
                             <button key={opt} onClick={() => handleGuess(opt)} className="bg-white p-4 rounded-xl shadow-sm border font-bold text-xl hover:bg-orange-50 active:scale-95">{opt}</button>
                         ))}
                     </div>
+                    {hint && (
+                        <div className="bg-yellow-50 text-yellow-800 p-3 rounded-xl border border-yellow-200 text-sm font-bold animate-in fade-in w-full text-center">
+                            {hint}
+                        </div>
+                    )}
                 </div>
             )}
         </div>
     );
 }
 
-// ... Rotation, Color, Hidden, Rain, Moving, Intruder ...
-
+// HARDER ROTATION GAME (45 degree intervals and tricky logic)
 export const RotationGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd, highScore }) => {
     const [targetLetter, setTargetLetter] = useState("F");
     const [angle, setAngle] = useState(0);
@@ -758,10 +764,12 @@ export const RotationGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
 
     useEffect(() => { 
         setTargetLetter(LETTERS[Math.floor(Math.random() * LETTERS.length)]);
-        setAngle(Math.floor(Math.random() * 4) * 90); 
+        // Angle can be 0, 45, 90, 135, 180...
+        setAngle(Math.floor(Math.random() * 8) * 45); 
     }, [score]);
 
     const handleGuess = (guessAngle: number) => {
+        // Target is +90 degrees clockwise
         const target = (angle + 90) % 360;
         if(guessAngle === target) {
             playSuccessSound();
@@ -775,9 +783,31 @@ export const RotationGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
 
     const handleAdvantage = () => {
          onRequestAd(() => {
-             alert("Gire no sentido horário (direita) ->");
+             alert("Gire no sentido horário (direita) 90 graus ->");
          });
     }
+
+    // Generate difficult options: Correct answer + 3 distractors close to it
+    const generateOptions = () => {
+        const correct = (angle + 90) % 360;
+        const options = new Set<number>();
+        options.add(correct);
+        
+        // Add tricky distractors (e.g. 45 degrees off, or mirrors)
+        // Here we just pick other 45 degree intervals
+        while(options.size < 4) {
+            // High probability of picking close angles
+            const noise = (Math.floor(Math.random() * 3) - 1) * 45; // -45, 0, +45 relative to random base
+            const candidate = (Math.floor(Math.random() * 8) * 45);
+            options.add(candidate);
+        }
+        return Array.from(options).sort((a,b) => a-b);
+    }
+
+    const [options, setOptions] = useState<number[]>([]);
+    useEffect(() => {
+        setOptions(generateOptions());
+    }, [angle]);
 
     return (
         <div className="flex flex-col h-full bg-brand-bg">
@@ -792,7 +822,7 @@ export const RotationGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
                 highScore={highScore}
                 scoreLabel="Máx Pontos"
             />
-            <div className="flex-grow flex flex-col items-center justify-center gap-12 p-6">
+            <div className="flex-grow flex flex-col items-center justify-center gap-8 p-6">
                 <div className="bg-white p-8 rounded-3xl shadow-soft w-32 h-32 flex items-center justify-center border border-gray-100">
                     <span 
                         className="text-8xl font-black text-cyan-600 transition-transform block" 
@@ -801,9 +831,11 @@ export const RotationGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
                         {targetLetter}
                     </span>
                 </div>
-                <div className="text-center font-bold text-gray-600 text-lg max-w-xs">Qual opção mostra a figura acima girada 90° à direita?</div>
+                <div className="text-center font-bold text-gray-600 text-lg max-w-xs">
+                    Qual opção é a figura acima girada <b className="text-cyan-600">90° à direita</b>?
+                </div>
                 <div className="grid grid-cols-2 gap-6">
-                    {[0, 90, 180, 270].map(a => (
+                    {options.map(a => (
                         <button key={a} onClick={() => handleGuess(a)} className="bg-white p-6 rounded-2xl shadow-sm hover:bg-cyan-50 flex items-center justify-center transition-transform active:scale-95">
                             <span 
                                 className="text-5xl font-black text-gray-700 block"
@@ -1164,8 +1196,8 @@ export const ProverbGame: React.FC<GameProps> = ({ onComplete, onExit, onRequest
         });
     }
 
-    // LOADING SCREEN ADDED
-    if (loading) return <LoadingScreen />;
+    // CUSTOM LOADING MESSAGE
+    if (loading) return <LoadingScreen message="Carregando Ditados..." />;
 
     return (
         <div className="flex flex-col h-full bg-brand-bg">

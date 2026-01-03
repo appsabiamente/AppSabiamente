@@ -3,6 +3,7 @@ import { TriviaQuestion, SequenceTask, IntruderTask, ScrambleTask, ProverbTask, 
 import { GoogleGenAI, Type } from "@google/genai";
 
 // Inicialização direta do cliente API para velocidade máxima (Client-side)
+// Isso resolve o problema de rotas de API inexistentes no Vercel estático
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 const MODEL_NAME = "gemini-3-flash-preview";
 
