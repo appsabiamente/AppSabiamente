@@ -16,7 +16,6 @@ import Betting from './components/Betting';
 import Settings from './components/Settings';
 import {
   IntruderGame,
-  ProverbGame,
   ScrambleGame,
   WordChainGame,
   ZenFocusGame,
@@ -102,7 +101,7 @@ const ACHIEVEMENTS: Achievement[] = [
     { id: 'encyclopedia', title: 'Enciclopédia', description: 'Recorde > 50 na Sabedoria.', icon: 'Book', unlocked: false, reward: 100, condition: s => (s.highScores['triv'] || 0) >= 50 },
     { id: 'calculator', title: 'Calculadora', description: 'Recorde > 50 no Cálculo.', icon: 'Calculator', unlocked: false, reward: 100, condition: s => (s.highScores['math'] || 0) >= 50 },
     { id: 'eagle_eye', title: 'Olhos de Águia', description: 'Recorde > 50 no Intruso.', icon: 'Eye', unlocked: false, reward: 100, condition: s => (s.highScores['intr'] || 0) >= 50 },
-    { id: 'poet', title: 'Poeta', description: 'Recorde > 50 na Corrente.', icon: 'Feather', unlocked: false, reward: 100, condition: s => (s.highScores['chain'] || 0) >= 50 },
+    { id: 'poet', title: 'Poeta', description: 'Recorde > 50 no Elo.', icon: 'Feather', unlocked: false, reward: 100, condition: s => (s.highScores['chain'] || 0) >= 50 },
     { id: 'zen_master', title: 'Mestre Zen', description: 'Recorde > 50 no Foco Zen.', icon: 'Leaf', unlocked: false, reward: 100, condition: s => (s.highScores['zen'] || 0) >= 50 },
 ];
 
@@ -132,14 +131,13 @@ const STORE_ITEMS: StoreItem[] = [
 ];
 
 const GAMES: Minigame[] = [
-  { id: 'chain', screen: Screen.GAME_WORD_CHAIN, title: 'Corrente', description: 'Palavras', icon: 'Link', category: 'Linguagem', color: 'text-blue-600 bg-blue-100', tutorial: 'Digite palavras da categoria certa.', unlockLevel: 1 },
+  { id: 'chain', screen: Screen.GAME_WORD_CHAIN, title: 'Elo de Palavras', description: 'Categorias', icon: 'Link', category: 'Linguagem', color: 'text-blue-600 bg-blue-100', tutorial: 'Encontre todas as palavras do tema.', unlockLevel: 1 },
   { id: 'zen', screen: Screen.GAME_ZEN_FOCUS, title: 'Foco Zen', description: 'Infinito', icon: 'Eye', category: 'Zen', color: 'text-teal-600 bg-teal-100', tutorial: 'Toque apenas nos círculos.', unlockLevel: 1 },
   { id: 'sum', screen: Screen.GAME_SUM_TARGET, title: 'Soma Alvo', description: 'Infinito', icon: 'Target', category: 'Raciocínio', color: 'text-green-600 bg-green-100', tutorial: 'Atinga a soma alvo.', unlockLevel: 1 },
   { id: 'cards', screen: Screen.GAME_CARDS, title: 'Cartas', description: 'Sorte', icon: 'Copy', category: 'Clássico', color: 'text-red-600 bg-red-100', tutorial: 'Maior ou menor?', unlockLevel: 1 },
   { id: 'mem', screen: Screen.GAME_MEMORY, title: 'Memória', description: 'Pares', icon: 'Brain', category: 'Memória', color: 'text-indigo-600 bg-indigo-100', tutorial: 'Encontre os pares.', unlockLevel: 1 },
-  { id: 'triv', screen: Screen.GAME_TRIVIA, title: 'Sabedoria', description: 'Quiz', icon: 'Brain', category: 'Linguagem', color: 'text-blue-600 bg-blue-100', tutorial: 'Responda corretamente.', unlockLevel: 1 },
+  { id: 'triv', screen: Screen.GAME_TRIVIA, title: 'Fato ou Mito?', description: 'Quiz Rápido', icon: 'Brain', category: 'Linguagem', color: 'text-blue-600 bg-blue-100', tutorial: 'É verdade ou mentira?', unlockLevel: 1 },
   { id: 'math', screen: Screen.GAME_MATH, title: 'Cálculo', description: 'Compras', icon: 'Calculator', category: 'Raciocínio', color: 'text-emerald-600 bg-emerald-100', tutorial: 'Faça as contas.', unlockLevel: 1 },
-  { id: 'prov', screen: Screen.GAME_PROVERB, title: 'Ditados', description: 'Completar', icon: 'Quote', category: 'Linguagem', color: 'text-amber-600 bg-amber-100', tutorial: 'Complete a frase.', unlockLevel: 1 },
   { id: 'patt', screen: Screen.GAME_PATTERN, title: 'Padrões', description: 'Visual', icon: 'Grid3X3', category: 'Memória', color: 'text-purple-600 bg-purple-100', tutorial: 'Repita o padrão.', unlockLevel: 1 },
   { id: 'est', screen: Screen.GAME_ESTIMATE, title: 'Estimativa', description: 'Qtd.', icon: 'Activity', category: 'Raciocínio', color: 'text-orange-600 bg-orange-100', tutorial: 'Estime a quantidade.', unlockLevel: 1 },
   { id: 'rot', screen: Screen.GAME_ROTATION, title: 'Rotação', description: 'Espacial', icon: 'RotateCcw', category: 'Raciocínio', color: 'text-cyan-600 bg-cyan-100', tutorial: 'Qual a figura rodada?', unlockAd: true },
@@ -695,7 +693,7 @@ export default function App() {
           case Screen.GAME_SEQUENCE: return <SequenceGame {...props} />;
           case Screen.GAME_SOUND: return <SoundGame {...props} />;
           case Screen.GAME_INTRUDER: return <IntruderGame {...props} highScore={getScore('intr')} />;
-          case Screen.GAME_PROVERB: return <ProverbGame {...props} highScore={getScore('prov')} />;
+          // GAME_PROVERB REMOVED
           case Screen.GAME_SCRAMBLE: return <ScrambleGame {...props} highScore={getScore('scram')} />;
           case Screen.GAME_WORD_CHAIN: return <WordChainGame {...props} highScore={getScore('chain')} />;
           case Screen.GAME_ZEN_FOCUS: return <ZenFocusGame {...props} highScore={getScore('zen')} />;

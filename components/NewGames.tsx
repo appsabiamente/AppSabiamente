@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { generateIntruderTask, generateProverbTask, generateScrambleTask, validateWordChain } from '../services/geminiService';
-import { IntruderTask, ProverbTask, ScrambleTask } from '../types';
+import { generateIntruderTask, generateScrambleTask, generateWordLinkBoard } from '../services/geminiService';
+import { IntruderTask, ScrambleTask, WordLinkBoard } from '../types';
 import { playSuccessSound, playFailureSound } from '../services/audioService';
 import { LoadingScreen } from './LoadingScreen';
 import { Loader2, CheckCircle, XCircle, Activity, Wind, Square, Circle, Play, Send, X, AlertCircle, Quote, Type, Zap, Eye, Target, Link, LayoutGrid, Heart, Palette, Search, Grid3X3, MousePointerClick, RotateCcw, Box, Copy, TrendingUp, CloudRain, Coins, MapPin, Trophy, Wallet, Video, Delete, CornerDownLeft, ArrowUp, ArrowDown, RotateCw, Trash2, Repeat, Flame, StopCircle, ArrowRight } from 'lucide-react';
@@ -75,162 +75,245 @@ const GameHeader: React.FC<{
     </div>
 );
 
-// === NEW GAMES IMPLEMENTATION ===
+// === REFORMULATED GAMES ===
 
+// 100% NEW CONCEPT: "Elo de Palavras" (Word Link)
+// Replaces the old typing Word Chain.
+// User selects words that belong to a specific Category from a grid.
 export const WordChainGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd, highScore }) => {
-    const [history, setHistory] = useState<string[]>([]); 
-    const [input, setInput] = useState("");
-    const [loading, setLoading] = useState(false);
+    const [board, setBoard] = useState<WordLinkBoard | null>(null);
+    const [gridWords, setGridWords] = useState<string[]>([]);
+    const [selectedWords, setSelectedWords] = useState<string[]>([]);
+    const [foundWords, setFoundWords] = useState<string[]>([]);
+    const [loading, setLoading] = useState(true);
     const [score, setScore] = useState(0);
-    const [category, setCategory] = useState("Frutas");
-    const [level, setLevel] = useState(1);
-    const [timeLeft, setTimeLeft] = useState(15);
-    const timerRef = useRef<any>(null);
-    const [paused, setPaused] = useState(false);
-    const inputRef = useRef<HTMLInputElement>(null);
-    
-    useEffect(() => {
-        const cats = ["Frutas", "Animais", "Países", "Cores", "Objetos de Casa"];
-        const randCat = cats[Math.floor(Math.random() * cats.length)];
-        setCategory(randCat);
-        const starters: Record<string, string> = {
-            "Frutas": "ABACATE", "Animais": "GATO", "Países": "BRASIL", "Cores": "AZUL", "Objetos de Casa": "CADEIRA"
-        };
-        setHistory([starters[randCat]]);
-        setTimeLeft(15);
-    }, [level]);
+    const [mistakes, setMistakes] = useState(0);
 
-    useEffect(() => {
-        if (loading || paused) return;
-        timerRef.current = setInterval(() => {
-            setTimeLeft(prev => {
-                if (prev <= 1) {
-                    clearInterval(timerRef.current);
-                    playFailureSound(0);
-                    const consolation = Math.floor(score / 2);
-                    alert(`TEMPO ESGOTADO! Você garantiu ${consolation} moedas.`);
-                    onComplete(consolation);
-                    return 0;
-                }
-                return prev - 1;
-            });
-        }, 1000);
-        return () => clearInterval(timerRef.current);
-    }, [history, loading, paused, score]);
-
-    const handleAdvantage = () => {
-        setPaused(true);
-        onRequestAd(() => {
-            setTimeLeft(t => t + 15);
-            setPaused(false);
-            alert("Tempo adicionado! +15s");
-        });
-    };
-
-    const lastWord = history[history.length - 1] || "";
-    const targetLetter = lastWord.slice(-1).toUpperCase();
-
-    const handleSubmit = async () => {
-        if (loading || !input.trim()) return;
+    const loadLevel = async () => {
         setLoading(true);
-        clearInterval(timerRef.current);
+        setSelectedWords([]);
+        setFoundWords([]);
+        setMistakes(0);
         
-        const res = await validateWordChain(lastWord, input, category);
-        
-        if (res.isValid) {
-            playSuccessSound();
-            const newHistory = [...history, input.toUpperCase()];
-            if (res.nextWord) newHistory.push(res.nextWord.toUpperCase());
-            
-            setHistory(newHistory);
-            setInput("");
-            const pts = 5 + (level * 2);
-            setScore(s => s + pts);
-            setTimeLeft(15);
-            
-            setTimeout(() => inputRef.current?.focus(), 100);
-
-            if (newHistory.length > 0 && newHistory.length % 4 === 0) {
-                 // Level up every 4 words
-                 // alert(`Nível ${level} concluído!`); // Removed to keep flow
-                 setLevel(l => l + 1);
-            }
-        } else {
-            playFailureSound(0);
-            alert(`FIM DE JOGO! ${res.message}`);
-            onComplete(0);
+        const data = await generateWordLinkBoard();
+        if (data) {
+            setBoard(data);
+            // Mix correct and distractors
+            const all = [...data.correctWords, ...data.distractors].sort(() => Math.random() - 0.5);
+            setGridWords(all);
         }
         setLoading(false);
     };
 
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter') handleSubmit();
+    useEffect(() => {
+        loadLevel();
+    }, []);
+
+    const handleWordTap = (word: string) => {
+        if (!board || foundWords.includes(word) || loading) return;
+
+        if (board.correctWords.includes(word)) {
+            playSuccessSound();
+            const newFound = [...foundWords, word];
+            setFoundWords(newFound);
+            
+            if (newFound.length === board.correctWords.length) {
+                // Level Complete
+                setTimeout(() => {
+                    alert("Categoria Completa! +20 Pontos");
+                    setScore(s => s + 20);
+                    loadLevel();
+                }, 500);
+            }
+        } else {
+            playFailureSound();
+            setMistakes(m => {
+                const newM = m + 1;
+                if (newM >= 3) {
+                    alert("Muitos erros! Jogo encerrado.");
+                    onComplete(score);
+                }
+                return newM;
+            });
+        }
     };
+
+    const handleAdvantage = () => {
+        onRequestAd(() => {
+            if (!board) return;
+            const missing = board.correctWords.find(w => !foundWords.includes(w));
+            if (missing) {
+                handleWordTap(missing); // Auto-find one
+            }
+        });
+    };
+
+    if (loading) return <LoadingScreen message="Criando Categoria..." />;
 
     return (
         <div className="flex flex-col h-full bg-brand-bg">
             <GameHeader 
-                title="Corrente" 
+                title="Elo de Palavras" 
                 icon={<Link size={24} className="text-blue-600"/>} 
                 onExit={onExit} 
                 currentCoins={score} 
                 onCollect={() => onComplete(score)}
                 onGetAdvantage={handleAdvantage}
-                advantageLabel="+15s (Vídeo)"
+                advantageLabel="Achar Palavra (Vídeo)"
                 highScore={highScore}
                 scoreLabel="Máx Pontos"
                 rightContent={
-                <div className={`font-bold text-lg px-3 py-1 rounded ${timeLeft < 5 ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-blue-100 text-blue-800'}`}>
-                    {timeLeft}s
-                </div>
-            } />
-            <div className="flex-grow p-4 flex flex-col">
-                <div className="bg-yellow-100 border-l-4 border-yellow-500 p-4 mb-4 rounded-r shadow-sm">
-                    <p className="text-yellow-900 font-bold">Categoria: <span className="text-lg uppercase">{category}</span></p>
-                </div>
-                <div className="flex-grow overflow-y-auto space-y-2 mb-4 p-4 bg-white rounded-3xl shadow-soft">
-                    {history.map((w, i) => (
-                        <div key={i} className={`p-3 rounded-2xl text-center font-bold max-w-[80%] shadow-sm ${i % 2 === 0 ? 'bg-gray-100 text-gray-600 self-start mr-auto' : 'bg-blue-100 text-blue-800 self-end ml-auto'}`}>
-                            {w}
-                        </div>
-                    ))}
-                    {loading && (
-                        <div className="flex justify-end">
-                            <div className="bg-gray-100 text-gray-500 p-3 rounded-2xl rounded-tr-none text-xs font-bold flex items-center gap-2 animate-pulse">
-                                <Loader2 size={12} className="animate-spin"/> Oponente pensando...
-                            </div>
-                        </div>
-                    )}
-                </div>
-                <div className="bg-white p-4 rounded-3xl shadow-soft">
-                    <p className="text-center text-gray-500 mb-2 text-sm">Palavra de {category} com <b>{targetLetter}</b>...</p>
-                    <div className="flex gap-2">
-                        <input 
-                            ref={inputRef}
-                            value={input} 
-                            onChange={e => setInput(e.target.value)} 
-                            onKeyDown={handleKeyDown}
-                            disabled={loading}
-                            className="flex-grow p-4 rounded-2xl bg-gray-50 border uppercase font-bold disabled:opacity-50" 
-                            placeholder="..." 
-                        />
-                        <button 
-                            onClick={handleSubmit} 
-                            disabled={loading || !input}
-                            className={`bg-blue-600 text-white p-4 rounded-2xl transition-all ${loading ? 'opacity-70 cursor-not-allowed' : 'hover:bg-blue-700 active:scale-95'}`}
-                        >
-                            {loading ? <Loader2 className="animate-spin"/> : <Send />}
-                        </button>
+                    <div className="flex gap-1">
+                        {[...Array(3)].map((_, i) => (
+                            <Heart key={i} size={20} className={i < (3 - mistakes) ? "fill-red-500 text-red-500" : "text-gray-300"} />
+                        ))}
                     </div>
+                } 
+            />
+            <div className="flex-grow p-4 flex flex-col">
+                <div className="bg-blue-100 p-6 rounded-3xl text-center shadow-sm mb-6 border border-blue-200">
+                    <p className="text-blue-800 text-sm font-bold uppercase tracking-widest mb-1">Tema</p>
+                    <h3 className="text-3xl font-black text-blue-900">{board?.topic}</h3>
+                    <p className="text-blue-600 text-xs font-bold mt-2">Encontre {board?.correctWords.length} palavras</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                    {gridWords.map((word, idx) => {
+                        const isFound = foundWords.includes(word);
+                        return (
+                            <button 
+                                key={idx}
+                                onClick={() => handleWordTap(word)}
+                                disabled={isFound}
+                                className={`p-4 rounded-xl font-bold text-lg shadow-sm transition-all transform active:scale-95 border-b-4
+                                ${isFound 
+                                    ? 'bg-green-500 text-white border-green-700' 
+                                    : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
+                            >
+                                {word}
+                                {isFound && <CheckCircle size={16} className="inline ml-2" />}
+                            </button>
+                        )
+                    })}
+                </div>
+                
+                <div className="mt-auto text-center text-gray-400 text-xs p-4">
+                    Toque apenas nas palavras relacionadas ao tema acima.
                 </div>
             </div>
         </div>
     );
 };
 
+// IMPROVED ROTATION GAME: Dynamic Questions
+export const RotationGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd, highScore }) => {
+    const [targetSymbol, setTargetSymbol] = useState("F");
+    const [baseAngle, setBaseAngle] = useState(0);
+    const [rotationTask, setRotationTask] = useState<{label: string, value: number}>({label: '90° Direita', value: 90});
+    const [score, setScore] = useState(0);
+    
+    const SYMBOLS = ["F", "R", "L", "G", "P", "J", "➔", "▲", "★", "♣", "7", "4"];
+    const TASKS = [
+        { label: '90° à Direita (Horário)', value: 90 },
+        { label: '90° à Esquerda (Anti-horário)', value: 270 },
+        { label: '180° (Meia Volta)', value: 180 }
+    ];
+
+    useEffect(() => { 
+        nextRound();
+    }, [score]);
+
+    const nextRound = () => {
+        setTargetSymbol(SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)]);
+        setBaseAngle(Math.floor(Math.random() * 8) * 45); 
+        setRotationTask(TASKS[Math.floor(Math.random() * TASKS.length)]);
+    }
+
+    const handleGuess = (guessAngle: number) => {
+        const target = (baseAngle + rotationTask.value) % 360;
+        if(guessAngle === target) {
+            playSuccessSound();
+            setScore(s => s + 5);
+        } else {
+            playFailureSound();
+            alert(`Errado! A resposta correta era a figura rotacionada em ${rotationTask.label}.`);
+            onComplete(score);
+        }
+    }
+
+    const handleAdvantage = () => {
+         onRequestAd(() => {
+             alert(`Dica: A rotação é ${rotationTask.label}. Imagine um relógio.`);
+         });
+    }
+
+    const generateOptions = () => {
+        const correct = (baseAngle + rotationTask.value) % 360;
+        const options = new Set<number>();
+        options.add(correct);
+        while(options.size < 4) {
+            options.add((Math.floor(Math.random() * 8) * 45));
+        }
+        return Array.from(options).sort((a,b) => a-b);
+    }
+
+    const [options, setOptions] = useState<number[]>([]);
+    useEffect(() => {
+        setOptions(generateOptions());
+    }, [baseAngle, rotationTask]);
+
+    return (
+        <div className="flex flex-col h-full bg-brand-bg">
+            <GameHeader 
+                title="Rotação" 
+                icon={<RotateCcw size={24} className="text-cyan-500"/>} 
+                onExit={onExit} 
+                currentCoins={score} 
+                onCollect={() => onComplete(score)} 
+                onGetAdvantage={handleAdvantage} 
+                advantageLabel="Dica (Vídeo)" 
+                highScore={highScore}
+                scoreLabel="Máx Pontos"
+            />
+            <div className="flex-grow flex flex-col items-center justify-center gap-6 p-6">
+                <div className="bg-white p-8 rounded-3xl shadow-soft w-32 h-32 flex items-center justify-center border border-gray-100">
+                    <span 
+                        className="text-8xl font-black text-cyan-600 transition-transform block" 
+                        style={{transform: `rotate(${baseAngle}deg)`}}
+                    >
+                        {targetSymbol}
+                    </span>
+                </div>
+                
+                <div className="bg-cyan-100 p-4 rounded-xl text-center w-full shadow-inner">
+                    <p className="text-cyan-900 font-bold text-sm uppercase mb-1">Sua Missão</p>
+                    <p className="text-lg font-black text-cyan-800 leading-tight">
+                        Como fica a figura girada <br/>
+                        <span className="text-2xl text-cyan-600">{rotationTask.label}</span>?
+                    </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-6">
+                    {options.map(a => (
+                        <button key={a} onClick={() => handleGuess(a)} className="bg-white p-6 rounded-2xl shadow-sm hover:bg-cyan-50 flex items-center justify-center transition-transform active:scale-95">
+                            <span 
+                                className="text-5xl font-black text-gray-700 block"
+                                style={{transform: `rotate(${a}deg)`}}
+                            >
+                                {targetSymbol}
+                            </span>
+                        </button>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ... OTHER GAMES KEEP AS IS ...
+
 export const ZenFocusGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd, highScore }) => {
-    // ... (Keep existing implementation as it is stable)
-    // For brevity, copying logic but it's unchanged in this request
+    // Keeping existing logic
     const [items, setItems] = useState<{id: number, type: 'good'|'bad', x: number, y: number}[]>([]);
     const [score, setScore] = useState(0);
     const [lives, setLives] = useState(3);
@@ -337,12 +420,13 @@ export const ZenFocusGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
 }
 
 export const SumTargetGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd, highScore }) => {
+     // Keeping existing logic
      const [target, setTarget] = useState(15);
      const [currentSum, setCurrentSum] = useState(0);
      const [options, setOptions] = useState<number[]>([]);
      const [timeLeft, setTimeLeft] = useState(15);
      const [score, setScore] = useState(0);
-     const [level, setLevel] = useState(1); // Difficulty level
+     const [level, setLevel] = useState(1); 
      const [paused, setPaused] = useState(false);
      const [showVictory, setShowVictory] = useState(false);
      const isGameOverRef = useRef(false);
@@ -374,10 +458,6 @@ export const SumTargetGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
      const resetRound = () => {
          isGameOverRef.current = false;
          
-         // LEVEL SCALING LOGIC
-         // Level 1: Target ~20-30
-         // Level 5: Target ~40-60
-         // Level 10: Target ~80-120
          const baseTarget = 15 + (level * 5); 
          const variance = Math.floor(Math.random() * 10) + (level * 2);
          const t = baseTarget + variance;
@@ -386,22 +466,19 @@ export const SumTargetGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
          setCurrentSum(0);
          setHistory([]);
          
-         // Solution generation (Ensure solvable)
          const p1 = Math.floor(Math.random() * (t / 2)) + 1;
          const p2 = Math.floor(Math.random() * ((t - p1) / 2)) + 1;
          const remaining = t - p1 - p2;
          const p3 = remaining > 0 ? remaining : 0;
          
-         // If p3 is 0 or negative (rare edge case), force sol
          const solution = p3 > 0 ? [p1, p2, p3] : [p1, t - p1];
          
-         // Distractors scaling
          const maxOption = t - 2;
          const randoms = Array.from({length: 6}, () => Math.floor(Math.random() * maxOption) + 1);
          const allOpts = [...solution, ...randoms].sort(() => Math.random() - 0.5);
          
          setOptions(allOpts);
-         setTimeLeft(Math.max(15, 15 + Math.floor(level/2))); // Give more time for harder math
+         setTimeLeft(Math.max(15, 15 + Math.floor(level/2)));
          setShowVictory(false);
      };
 
@@ -506,15 +583,13 @@ export const SumTargetGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
  };
 
 export const CardGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd, highScore }) => {
-    // Store CURRENT card and HIDDEN NEXT card
     const [currentCard, setCurrentCard] = useState(5);
-    const [nextCard, setNextCard] = useState(8); // Pre-calculated next card
+    const [nextCard, setNextCard] = useState(8); 
     
     const [score, setScore] = useState(0);
     const [combo, setCombo] = useState(0);
     const [hint, setHint] = useState<string | null>(null);
 
-    // Initialize on mount
     useEffect(() => {
         const c1 = Math.floor(Math.random() * 13) + 1;
         const c2 = Math.floor(Math.random() * 13) + 1;
@@ -523,18 +598,16 @@ export const CardGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd,
     }, []);
 
     const handleGuess = (higher: boolean) => {
-        setHint(null); // Clear hint
+        setHint(null); 
         
-        // Compare with the PRE-CALCULATED next card
         if ((higher && nextCard >= currentCard) || (!higher && nextCard <= currentCard)) {
             playSuccessSound();
             const comboBonus = Math.min(combo, 5); 
             setScore(s => s + 2 + comboBonus);
             setCombo(c => c + 1);
             
-            // Advance game state
             setCurrentCard(nextCard);
-            setNextCard(Math.floor(Math.random() * 13) + 1); // Generate NEW next card
+            setNextCard(Math.floor(Math.random() * 13) + 1); 
         } else {
             playFailureSound();
             alert(`Era ${nextCard}! Fim de jogo.`);
@@ -544,9 +617,7 @@ export const CardGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd,
 
     const handleAdvantage = () => {
          onRequestAd(() => {
-             // Peek at the HIDDEN next card
              const type = nextCard > 7 ? "Alta (>7)" : "Baixa (<=7)";
-             // Simulate randomness in hint phrasing but keep it truthful
              setHint(`O oráculo viu: A próxima é ${type}`);
          });
     }
@@ -578,7 +649,6 @@ export const CardGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd,
                     <div className="absolute bottom-2 right-2 text-red-600 rotate-180">♥</div>
                 </div>
                 
-                {/* Dica Visual Abaixo das Opções */}
                 <div className="flex flex-col w-full gap-4 items-center">
                     <div className="flex gap-4 w-full">
                         <button onClick={() => handleGuess(false)} className="flex-1 bg-blue-100 text-blue-800 py-4 rounded-xl font-bold flex flex-col items-center transition-transform active:scale-95"><ArrowDown/> Menor</button>
@@ -595,7 +665,6 @@ export const CardGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd,
     );
 }
 
-// ... (Other standard games like PatternGame, EstimateGame remain unchanged for this fix request) ...
 export const PatternGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd, highScore }) => {
     const [pattern, setPattern] = useState<number[]>([]);
     const [userPattern, setUserPattern] = useState<number[]>([]);
@@ -604,7 +673,6 @@ export const PatternGame: React.FC<GameProps> = ({ onComplete, onExit, onRequest
     const [score, setScore] = useState(0);
     const [highlighted, setHighlighted] = useState<number | null>(null);
 
-    // Initial Start
     useEffect(() => { startLevel(1); }, []);
 
     const startLevel = (lvl: number) => {
@@ -614,7 +682,6 @@ export const PatternGame: React.FC<GameProps> = ({ onComplete, onExit, onRequest
         const newPat = Array.from({length: len}, () => Math.floor(Math.random() * 9));
         setPattern(newPat);
         
-        // Play Pattern
         let i = 0;
         const interval = setInterval(() => {
             if (i >= newPat.length) {
@@ -639,10 +706,8 @@ export const PatternGame: React.FC<GameProps> = ({ onComplete, onExit, onRequest
         setUserPattern(newUp);
         playSuccessSound(); 
 
-        // Check immediately
         if(newUp[newUp.length-1] !== pattern[newUp.length-1]) {
             playFailureSound();
-            // CORRECTION: Send 0 score to force "Que Pena" screen on App.tsx
             onComplete(0);
             return;
         }
@@ -707,10 +772,9 @@ export const EstimateGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
     const startRound = () => {
         setPhase('show');
         setHint(null);
-        // DIFFICULTY SCALING: Increase max items based on score
         const difficulty = Math.floor(score / 10);
         const minItems = 5 + difficulty;
-        const maxItems = 20 + (difficulty * 5); // +5 max items every 10 points
+        const maxItems = 20 + (difficulty * 5); 
         
         const c = Math.floor(Math.random() * (maxItems - minItems + 1)) + minItems;
         setCount(c);
@@ -721,7 +785,6 @@ export const EstimateGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
             color: ['red','blue','green','yellow'][Math.floor(Math.random()*4)]
         })));
         
-        // Slightly faster show time on higher levels?
         const showTime = Math.max(1500, 3000 - (difficulty * 100));
         setTimeout(() => setPhase('guess'), showTime); 
     };
@@ -793,103 +856,7 @@ export const EstimateGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
     );
 }
 
-// IMPROVED VARIETY ROTATION GAME
-export const RotationGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd, highScore }) => {
-    const [targetSymbol, setTargetSymbol] = useState("F");
-    const [angle, setAngle] = useState(0);
-    const [score, setScore] = useState(0);
-    
-    // Expanded symbols list for variety
-    const SYMBOLS = ["F", "R", "L", "G", "P", "J", "➔", "▲", "★", "♣", "7", "4"];
-
-    useEffect(() => { 
-        setTargetSymbol(SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)]);
-        // Angle can be 0, 45, 90, 135, 180...
-        setAngle(Math.floor(Math.random() * 8) * 45); 
-    }, [score]);
-
-    const handleGuess = (guessAngle: number) => {
-        // Target is +90 degrees clockwise
-        const target = (angle + 90) % 360;
-        if(guessAngle === target) {
-            playSuccessSound();
-            setScore(s => s + 5);
-        } else {
-            playFailureSound();
-            alert("Errado!");
-            onComplete(score);
-        }
-    }
-
-    const handleAdvantage = () => {
-         onRequestAd(() => {
-             alert("Gire no sentido horário (direita) 90 graus ->");
-         });
-    }
-
-    // Generate difficult options: Correct answer + 3 distractors close to it
-    const generateOptions = () => {
-        const correct = (angle + 90) % 360;
-        const options = new Set<number>();
-        options.add(correct);
-        
-        while(options.size < 4) {
-            // High probability of picking close angles
-            const candidate = (Math.floor(Math.random() * 8) * 45);
-            options.add(candidate);
-        }
-        return Array.from(options).sort((a,b) => a-b);
-    }
-
-    const [options, setOptions] = useState<number[]>([]);
-    useEffect(() => {
-        setOptions(generateOptions());
-    }, [angle]);
-
-    return (
-        <div className="flex flex-col h-full bg-brand-bg">
-            <GameHeader 
-                title="Rotação" 
-                icon={<RotateCcw size={24} className="text-cyan-500"/>} 
-                onExit={onExit} 
-                currentCoins={score} 
-                onCollect={() => onComplete(score)} 
-                onGetAdvantage={handleAdvantage} 
-                advantageLabel="Dica (Vídeo)" 
-                highScore={highScore}
-                scoreLabel="Máx Pontos"
-            />
-            <div className="flex-grow flex flex-col items-center justify-center gap-8 p-6">
-                <div className="bg-white p-8 rounded-3xl shadow-soft w-32 h-32 flex items-center justify-center border border-gray-100">
-                    <span 
-                        className="text-8xl font-black text-cyan-600 transition-transform block" 
-                        style={{transform: `rotate(${angle}deg)`}}
-                    >
-                        {targetSymbol}
-                    </span>
-                </div>
-                <div className="text-center font-bold text-gray-600 text-lg max-w-xs">
-                    Qual opção é a figura acima girada <b className="text-cyan-600">90° à direita</b>?
-                </div>
-                <div className="grid grid-cols-2 gap-6">
-                    {options.map(a => (
-                        <button key={a} onClick={() => handleGuess(a)} className="bg-white p-6 rounded-2xl shadow-sm hover:bg-cyan-50 flex items-center justify-center transition-transform active:scale-95">
-                            <span 
-                                className="text-5xl font-black text-gray-700 block"
-                                style={{transform: `rotate(${a}deg)`}}
-                            >
-                                {targetSymbol}
-                            </span>
-                        </button>
-                    ))}
-                </div>
-            </div>
-        </div>
-    );
-}
-
 export const ColorMatchGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd, highScore }) => {
-    // ... (Keep existing)
     const [word, setWord] = useState("");
     const [color, setColor] = useState("");
     const [score, setScore] = useState(0);
@@ -958,7 +925,6 @@ export const ColorMatchGame: React.FC<GameProps> = ({ onComplete, onExit, onRequ
 }
 
 export const HiddenObjectGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd, highScore }) => {
-    // ... (Keep existing)
     const [grid, setGrid] = useState<any[]>([]);
     const [target, setTarget] = useState<any>(null);
     const [score, setScore] = useState(0);
@@ -976,7 +942,6 @@ export const HiddenObjectGame: React.FC<GameProps> = ({ onComplete, onExit, onRe
             icon: Math.random() > 0.1 ? icons[Math.floor(Math.random()*icons.length)] : tIcon,
             color: ['text-blue-500','text-green-500','text-yellow-500'][Math.floor(Math.random()*3)]
         }));
-        // Ensure strictly one target exists
         const targetIdx = Math.floor(Math.random() * 25);
         newGrid[targetIdx] = { id: targetIdx, icon: tIcon, color: 'text-red-500' };
         setGrid(newGrid);
@@ -1028,7 +993,6 @@ const StarIcon = ({size, className}:{size:number, className?:string}) => (
 );
 
 export const MathRainGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd, highScore }) => {
-    // ... (Keep existing)
     const [q, setQ] = useState({t: "2+2", a: 4});
     const [timeLeft, setTimeLeft] = useState(5);
     const [score, setScore] = useState(0);
@@ -1048,7 +1012,7 @@ export const MathRainGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
         const a = Math.floor(Math.random() * 10);
         const b = Math.floor(Math.random() * 10);
         setQ({t: `${a} + ${b}`, a: a+b});
-        setTimeLeft(5 - Math.min(3, score/10)); // Faster
+        setTimeLeft(5 - Math.min(3, score/10)); 
     }
 
     const handleAns = (ans: number) => {
@@ -1089,7 +1053,6 @@ export const MathRainGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
 }
 
 export const MovingHuntGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd, highScore }) => {
-    // ... (Keep existing)
     const [items, setItems] = useState<any[]>([]);
     const [score, setScore] = useState(0);
     const reqRef = useRef<number>();
@@ -1185,73 +1148,18 @@ export const IntruderGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
         });
     }
 
-    if (loading) return <LoadingScreen message="Procurando Intrusos..." />;
-
     return (
         <div className="flex flex-col h-full bg-brand-bg">
             <GameHeader title="Intruso" icon={<Search size={24} className="text-purple-600"/>} onExit={onExit} currentCoins={score} onCollect={() => onComplete(score)} onGetAdvantage={handleAdvantage} advantageLabel="Dica (Vídeo)" highScore={highScore} scoreLabel="Máx Pontos" />
             <div className="flex-grow flex flex-col items-center justify-center p-6 gap-6">
                 <h3 className="text-xl font-bold text-gray-700">Qual item não pertence?</h3>
-                <div className="grid grid-cols-2 gap-4 w-full">
-                    {task?.items.map((item, i) => (
-                        <button key={i} onClick={() => handleGuess(item)} className="bg-white p-6 rounded-2xl shadow-sm font-bold text-lg hover:bg-purple-50 active:scale-95 transition-all border border-gray-100">{item}</button>
-                    ))}
-                </div>
-            </div>
-        </div>
-    );
-}
-
-export const ProverbGame: React.FC<GameProps> = ({ onComplete, onExit, onRequestAd, highScore }) => {
-    const [task, setTask] = useState<ProverbTask | null>(null);
-    const [score, setScore] = useState(0);
-    const [loading, setLoading] = useState(true);
-
-    const load = async () => {
-        setLoading(true);
-        const t = await generateProverbTask();
-        if(t) setTask(t);
-        setLoading(false);
-    }
-
-    useEffect(() => { load(); }, []);
-
-    const handleGuess = (option: string) => {
-        if(!task) return;
-        if(option === task.part2) {
-            playSuccessSound();
-            setScore(s => s + 10);
-            load();
-        } else {
-            playFailureSound();
-            alert(`Errado! O correto era: "${task.part2}"`);
-            onComplete(score);
-        }
-    }
-
-    const handleAdvantage = () => {
-        onRequestAd(() => {
-            if(task) {
-                 alert(`Começa com: ${task.part2.substring(0, 3)}...`);
-            }
-        });
-    }
-
-    // CUSTOM LOADING MESSAGE
-    if (loading) return <LoadingScreen message="Carregando Ditados..." />;
-
-    return (
-        <div className="flex flex-col h-full bg-brand-bg">
-            <GameHeader title="Ditados" icon={<Quote size={24} className="text-amber-600"/>} onExit={onExit} currentCoins={score} onCollect={() => onComplete(score)} onGetAdvantage={handleAdvantage} advantageLabel="Dica (Vídeo)" highScore={highScore} scoreLabel="Máx Pontos" />
-            <div className="flex-grow flex flex-col items-center justify-center p-6 gap-6">
-                <div className="bg-amber-100 p-6 rounded-2xl w-full text-center shadow-inner">
-                    <p className="text-amber-900 text-xl font-serif italic">"{task?.part1}..."</p>
-                </div>
-                <div className="flex flex-col gap-3 w-full">
-                    {[...(task?.options || []), task?.part2].sort(()=>Math.random()-0.5).map((opt, i) => (
-                        <button key={i} onClick={() => handleGuess(opt!)} className="bg-white p-4 rounded-xl shadow-sm font-medium text-gray-800 hover:bg-amber-50 text-left border border-gray-100 active:scale-95 transition-all">{opt}</button>
-                    ))}
-                </div>
+                {loading ? <Loader2 className="animate-spin text-purple-500" size={48}/> : (
+                    <div className="grid grid-cols-2 gap-4 w-full">
+                        {task?.items.map((item, i) => (
+                            <button key={i} onClick={() => handleGuess(item)} className="bg-white p-6 rounded-2xl shadow-sm font-bold text-lg hover:bg-purple-50 active:scale-95 transition-all border border-gray-100">{item}</button>
+                        ))}
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -1291,23 +1199,25 @@ export const ScrambleGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
         });
     }
 
-    if (loading) return <LoadingScreen message="Embaralhando..." />;
-
     return (
         <div className="flex flex-col h-full bg-brand-bg">
             <GameHeader title="Embaralhado" icon={<Type size={24} className="text-indigo-600"/>} onExit={onExit} currentCoins={score} onCollect={() => onComplete(score)} onGetAdvantage={handleAdvantage} advantageLabel="Dica (Vídeo)" highScore={highScore} scoreLabel="Máx Pontos" />
             <div className="flex-grow flex flex-col items-center justify-center p-6 gap-8">
-                <div className="text-center">
-                    <p className="text-sm text-gray-400 font-bold uppercase mb-2">Desembaralhe:</p>
-                    <div className="text-4xl font-black text-indigo-600 tracking-widest break-all">{task?.scrambled}</div>
-                </div>
-                <input 
-                    value={input}
-                    onChange={(e) => setInput(e.target.value.toUpperCase())}
-                    className="w-full p-4 text-center text-xl font-bold rounded-2xl border-2 border-indigo-100 focus:border-indigo-500 outline-none uppercase"
-                    placeholder="Sua resposta..."
-                />
-                <button onClick={check} className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold shadow-lg active:scale-95 transition-transform">Verificar</button>
+                {loading ? <Loader2 className="animate-spin text-indigo-500" size={48}/> : (
+                    <>
+                        <div className="text-center">
+                            <p className="text-sm text-gray-400 font-bold uppercase mb-2">Desembaralhe:</p>
+                            <div className="text-4xl font-black text-indigo-600 tracking-widest break-all">{task?.scrambled}</div>
+                        </div>
+                        <input 
+                            value={input}
+                            onChange={(e) => setInput(e.target.value.toUpperCase())}
+                            className="w-full p-4 text-center text-xl font-bold rounded-2xl border-2 border-indigo-100 focus:border-indigo-500 outline-none uppercase"
+                            placeholder="Sua resposta..."
+                        />
+                        <button onClick={check} className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold shadow-lg active:scale-95 transition-transform">Verificar</button>
+                    </>
+                )}
             </div>
         </div>
     );

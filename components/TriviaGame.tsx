@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
-import { generateTriviaQuestion } from '../services/geminiService';
-import { TriviaQuestion } from '../types';
-import { CheckCircle, XCircle, Lightbulb, Coins, Brain, X, ArrowRight, StopCircle, Wallet, Zap, Video } from 'lucide-react';
+import { generateFactOrFake } from '../services/geminiService';
+import { FactOrFakeQuestion } from '../types';
+import { Check, X, Coins, Brain, ArrowRight, StopCircle, Video, ThumbsUp, ThumbsDown, HelpCircle } from 'lucide-react';
 import { LoadingScreen } from './LoadingScreen';
 import { playSuccessSound, playFailureSound } from '../services/audioService';
 
@@ -11,19 +11,15 @@ interface TriviaGameProps {
   onExit: () => void;
   userCoins: number;
   onUseCoins: (amount: number) => boolean;
+  onRequestAd: (cb: () => void) => void;
 }
 
-const TriviaGame: React.FC<TriviaGameProps> = ({ onComplete, onExit, userCoins, onUseCoins }) => {
-  const [question, setQuestion] = useState<TriviaQuestion | null>(null);
+const TriviaGame: React.FC<TriviaGameProps> = ({ onComplete, onExit, userCoins, onRequestAd }) => {
+  const [data, setData] = useState<FactOrFakeQuestion | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedOption, setSelectedOption] = useState<string | null>(null);
-  const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
-  const [hintUsed, setHintUsed] = useState(false);
-  const [visibleOptions, setVisibleOptions] = useState<string[]>([]);
   const [currentScore, setCurrentScore] = useState(0);
-  const [showDecision, setShowDecision] = useState(false);
-  // State for correction modal
-  const [showCorrection, setShowCorrection] = useState(false);
+  const [answered, setAnswered] = useState(false);
+  const [lastResult, setLastResult] = useState<'CORRECT' | 'WRONG' | null>(null);
 
   useEffect(() => {
     loadQuestion();
@@ -31,108 +27,58 @@ const TriviaGame: React.FC<TriviaGameProps> = ({ onComplete, onExit, userCoins, 
 
   const loadQuestion = async () => {
     setLoading(true);
-    setShowDecision(false);
-    setSelectedOption(null);
-    setIsCorrect(null);
-    setHintUsed(false);
-    setShowCorrection(false);
+    setAnswered(false);
+    setLastResult(null);
     
-    const q = await generateTriviaQuestion();
+    const q = await generateFactOrFake();
     if (q) {
-      setQuestion(q);
-      setVisibleOptions(q.options);
+      setData(q);
     }
     setLoading(false);
   };
 
-  const handleOptionSelect = (option: string) => {
-    if (selectedOption !== null || !question) return; 
-    
-    setSelectedOption(option);
-    const correct = option === question.correctAnswer;
-    setIsCorrect(correct);
+  const handleAnswer = (choice: boolean) => {
+    if (answered || !data) return;
+    setAnswered(true);
 
+    const correct = choice === data.isFact;
+    
     if (correct) {
       playSuccessSound();
-      const earned = 5;
-      const newScore = currentScore + earned;
-      setCurrentScore(newScore); // Real-time update
-      setTimeout(() => setShowDecision(true), 1500); 
+      setLastResult('CORRECT');
+      setCurrentScore(s => s + 5);
     } else {
-        playFailureSound();
-        setTimeout(() => setShowCorrection(true), 1000);
+      playFailureSound();
+      setLastResult('WRONG');
     }
   };
 
-  const useHint = () => {
-    if (!question || hintUsed) return;
-    setHintUsed(true);
-    const incorrect = question.options.filter(o => o !== question.correctAnswer);
-    const toRemove = incorrect.slice(0, 2);
-    setVisibleOptions(prev => prev.filter(o => !toRemove.includes(o)));
+  const handleNext = () => {
+      if (lastResult === 'WRONG') {
+          onComplete(currentScore); // End game on wrong answer (or can reduce life)
+      } else {
+          loadQuestion();
+      }
   };
 
-  if (loading) return <LoadingScreen />;
+  const handleAdvantage = () => {
+      onRequestAd(() => {
+          // Reveal the answer visually
+          if (data) {
+              alert(`O Oráculo diz: Isso é ${data.isFact ? "VERDADE" : "MITO"}!`);
+          }
+      });
+  }
 
-  if (!question) {
+  if (loading) return <LoadingScreen message="Consultando os livros..." />;
+
+  if (!data) {
     return (
-      <div className="p-8 text-center">
-        <p className="text-xl text-red-600 mb-4">Não foi possível carregar a pergunta.</p>
+      <div className="p-8 text-center flex flex-col items-center justify-center h-full">
+        <p className="text-xl text-red-600 mb-4">Erro ao carregar.</p>
         <button onClick={onExit} className="bg-gray-200 px-6 py-3 rounded-xl text-lg">Voltar</button>
       </div>
     );
-  }
-
-  // Correction Modal
-  if (showCorrection) {
-      return (
-          <div className="flex flex-col h-full bg-brand-bg p-6 items-center justify-center text-center">
-              <div className="bg-white p-8 rounded-3xl shadow-lg w-full max-w-sm animate-in zoom-in">
-                  <XCircle size={64} className="mx-auto text-red-500 mb-4"/>
-                  <h2 className="text-2xl font-black text-gray-800 mb-2">Errou!</h2>
-                  <p className="text-gray-500 mb-4">A resposta correta era:</p>
-                  <p className="text-xl font-bold text-green-600 mb-6 bg-green-50 p-4 rounded-xl border border-green-200">
-                      {question.correctAnswer}
-                  </p>
-                  <p className="text-sm text-gray-400 italic mb-6">Pontuação final: {currentScore}</p>
-                  <button 
-                    onClick={() => onComplete(0)}
-                    className="w-full bg-gray-900 text-white py-4 rounded-xl font-bold hover:scale-105 transition-transform"
-                  >
-                      Entendi
-                  </button>
-              </div>
-          </div>
-      )
-  }
-
-  // Decision Screen (Deal or No Deal style)
-  if (showDecision) {
-      return (
-          <div className="flex flex-col h-full bg-brand-bg p-6 items-center justify-center text-center">
-              <div className="bg-white p-8 rounded-3xl shadow-lg w-full max-w-sm">
-                  <Coins size={64} className="mx-auto text-yellow-500 mb-4 animate-bounce"/>
-                  <h2 className="text-2xl font-black text-gray-800 mb-2">Muito Bem!</h2>
-                  <p className="text-gray-500 mb-6">Você tem <span className="font-bold text-green-600">{currentScore} moedas</span> agora.</p>
-                  
-                  <div className="flex flex-col gap-3">
-                      <button 
-                        onClick={() => onComplete(currentScore)}
-                        className="w-full bg-green-100 text-green-800 py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-green-200"
-                      >
-                          <StopCircle /> Parar e Garantir
-                      </button>
-                      <button 
-                        onClick={loadQuestion}
-                        className="w-full bg-brand-primary text-white py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:opacity-90 shadow-md"
-                      >
-                          <ArrowRight /> Arriscar Próxima
-                      </button>
-                  </div>
-                  <p className="text-xs text-red-400 mt-4 font-bold">Aviso: Se errar a próxima, perde tudo!</p>
-              </div>
-          </div>
-      )
   }
 
   return (
@@ -144,7 +90,7 @@ const TriviaGame: React.FC<TriviaGameProps> = ({ onComplete, onExit, userCoins, 
                     <Brain size={24} />
                 </div>
                 <div>
-                    <h2 className="text-xl font-bold text-gray-800 leading-none">Sabedoria</h2>
+                    <h2 className="text-xl font-bold text-gray-800 leading-none">Fato ou Mito?</h2>
                     <span className="text-xs font-bold text-yellow-600 flex items-center gap-1"><Coins size={12}/> Acumulado: {currentScore}</span>
                 </div>
             </div>
@@ -152,54 +98,68 @@ const TriviaGame: React.FC<TriviaGameProps> = ({ onComplete, onExit, userCoins, 
                 <X size={20} className="text-gray-600" />
             </button>
         </div>
-
-        <div className="flex gap-2">
-            <button onClick={useHint} disabled={hintUsed} className="flex-grow bg-yellow-100 text-yellow-800 p-3 rounded-xl font-bold flex items-center justify-center gap-2 border-2 border-yellow-300 shadow-sm active:scale-95 disabled:opacity-50 animate-pulse hover:bg-yellow-200 transition-colors">
-                <Video size={20} className="fill-yellow-600 text-yellow-800"/>
-                <span className="text-sm">Eliminar 2 (Vídeo)</span>
-            </button>
-            {currentScore > 0 && (
-                <button onClick={() => onComplete(currentScore)} className="flex-grow bg-green-100 text-green-700 p-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 border-2 border-green-200 shadow-sm animate-in zoom-in hover:bg-green-200">
-                    <Wallet size={16}/>
-                    <span className="text-sm">Recolher</span>
-                </button>
-            )}
-        </div>
       </div>
 
-      <div className="flex-grow overflow-y-auto px-6">
-        <div className="bg-white p-6 rounded-2xl shadow-soft mb-6 border border-gray-100">
-            <p className="text-xl font-medium leading-relaxed text-slate-800">{question.question}</p>
+      <div className="flex-grow overflow-y-auto px-6 flex flex-col justify-center">
+        
+        {/* CARD DA PERGUNTA */}
+        <div className="bg-white p-8 rounded-3xl shadow-lg border-2 border-gray-100 text-center relative mb-8">
+            <HelpCircle size={40} className="mx-auto text-blue-300 mb-4"/>
+            <p className="text-2xl font-bold leading-relaxed text-slate-800">
+                "{data.statement}"
+            </p>
+            
+            {answered && (
+                <div className={`mt-6 p-4 rounded-xl text-left animate-in zoom-in ${lastResult === 'CORRECT' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+                    <div className="flex items-center gap-2 mb-1">
+                        {lastResult === 'CORRECT' ? <Check className="text-green-600"/> : <X className="text-red-600"/>}
+                        <span className={`font-black ${lastResult === 'CORRECT' ? 'text-green-700' : 'text-red-700'}`}>
+                            {lastResult === 'CORRECT' ? 'ACERTOU!' : 'ERROU!'}
+                        </span>
+                    </div>
+                    <p className="text-gray-700 font-medium">{data.explanation}</p>
+                </div>
+            )}
         </div>
 
-        <div className="space-y-3 mb-6">
-            {question.options.map((option, idx) => {
-                if (!visibleOptions.includes(option)) return null;
-                
-                const isSelected = selectedOption === option;
-                const isThisCorrect = option === question.correctAnswer;
-                
-                let btnClass = "bg-white border-2 border-slate-200 text-slate-700 hover:bg-slate-50";
-                if (selectedOption !== null) {
-                    if (isThisCorrect) btnClass = "bg-green-100 border-green-500 text-green-900";
-                    else if (isSelected) btnClass = "bg-red-100 border-red-500 text-red-900";
-                    else btnClass = "opacity-40 bg-gray-50 border-gray-100";
-                }
-
-                return (
-                    <button
-                        key={idx}
-                        onClick={() => handleOptionSelect(option)}
-                        className={`w-full p-4 text-left rounded-xl text-lg font-semibold transition-all duration-200 flex justify-between items-center shadow-sm ${btnClass}`}
-                        disabled={selectedOption !== null}
+        {!answered ? (
+            <div className="flex flex-col gap-4">
+                <div className="flex gap-4">
+                    <button 
+                        onClick={() => handleAnswer(true)}
+                        className="flex-1 bg-green-100 border-b-4 border-green-500 text-green-800 py-6 rounded-2xl font-black text-xl flex flex-col items-center gap-2 active:scale-95 transition-transform"
                     >
-                        {option}
-                        {selectedOption !== null && isThisCorrect && <CheckCircle className="text-green-600 animate-in zoom-in" />}
-                        {selectedOption !== null && isSelected && !isThisCorrect && <XCircle className="text-red-600 animate-in zoom-in" />}
+                        <ThumbsUp size={32} className="fill-green-600 text-green-600"/>
+                        VERDADE
                     </button>
-                )
-            })}
-        </div>
+                    <button 
+                        onClick={() => handleAnswer(false)}
+                        className="flex-1 bg-red-100 border-b-4 border-red-500 text-red-800 py-6 rounded-2xl font-black text-xl flex flex-col items-center gap-2 active:scale-95 transition-transform"
+                    >
+                        <ThumbsDown size={32} className="fill-red-600 text-red-600"/>
+                        MITO
+                    </button>
+                </div>
+                <button onClick={handleAdvantage} className="w-full text-blue-500 font-bold flex items-center justify-center gap-2 py-2">
+                    <Video size={16}/> Pedir Ajuda
+                </button>
+            </div>
+        ) : (
+            <div className="flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-4">
+                <button 
+                    onClick={handleNext}
+                    className={`w-full py-4 rounded-2xl font-bold text-xl flex items-center justify-center gap-2 shadow-lg transition-transform hover:scale-[1.02]
+                    ${lastResult === 'CORRECT' ? 'bg-brand-primary text-white' : 'bg-gray-800 text-white'}`}
+                >
+                    {lastResult === 'CORRECT' ? <>Próxima <ArrowRight/></> : <>Tentar Novamente <StopCircle/></>}
+                </button>
+                {lastResult === 'CORRECT' && (
+                    <button onClick={() => onComplete(currentScore)} className="text-gray-500 font-bold py-2">
+                        Parar e Pegar Moedas
+                    </button>
+                )}
+            </div>
+        )}
       </div>
     </div>
   );
