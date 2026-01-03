@@ -132,7 +132,22 @@ export const playFanfare = () => {
     playNote(1046.50, 'triangle', t + 0.3, 0.8, 0.8); // Long final note
 };
 
-// 5. MUSICAL TONES (For Sound Game)
+// 5. PARTY SOUNDS: Pops and whistles simulation
+export const playCelebrationSound = () => {
+    if (!audioCtx || isMuted) return;
+    const t = audioCtx.currentTime;
+    
+    // Rapid Pops
+    for(let i=0; i<8; i++) {
+        setTimeout(playClickSound, i * 150);
+    }
+    
+    // High Whistle
+    playNote(880, 'sine', t + 0.5, 0.3, 0.3); // A5
+    playNote(1760, 'sine', t + 0.6, 0.5, 0.2); // A6
+};
+
+// 6. MUSICAL TONES (For Sound Game)
 // Smoother sine waves with nice release
 const FREQUENCIES = {
   0: 261.63, // C4 (Dó)

@@ -216,6 +216,7 @@ export const validateWordChain = async (lastWord: string, userWord: string, cate
         return { isValid: false, message: "Erro de conexão." };
 
     } catch (e) {
-        return { isValid: false, message: "Não consegui verificar." };
+        console.error(e);
+        return { isValid: false, message: "Não consegui verificar. Tente novamente." };
     }
 }

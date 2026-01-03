@@ -1,9 +1,12 @@
+
 import React, { useState, useEffect } from 'react';
 import { UserStats } from '../types';
-import { Sparkles, Quote } from 'lucide-react';
+import { Sparkles, Quote, CloudRain, Video } from 'lucide-react';
 
 interface TreeOfMindProps {
   stats: UserStats;
+  onWater?: () => void;
+  canWater?: boolean;
 }
 
 const MOTIVATION = [
@@ -16,7 +19,7 @@ const MOTIVATION = [
     "Aprender algo novo rejuvenesce a mente."
 ];
 
-const TreeOfMind: React.FC<TreeOfMindProps> = ({ stats }) => {
+const TreeOfMind: React.FC<TreeOfMindProps> = ({ stats, onWater, canWater }) => {
   const level = stats.level;
   const [message, setMessage] = useState(MOTIVATION[0]);
 
@@ -147,6 +150,17 @@ const TreeOfMind: React.FC<TreeOfMindProps> = ({ stats }) => {
                 <Sparkles size={16} className="absolute top-10 left-10 text-yellow-400 animate-bounce delay-100" />
                 <Sparkles size={20} className="absolute top-20 right-12 text-yellow-400 animate-bounce delay-700" />
             </>
+          )}
+
+          {/* Water Button - Only shows if allowed */}
+          {canWater && onWater && (
+              <button 
+                onClick={onWater}
+                className="absolute bottom-4 -right-2 bg-blue-500 hover:bg-blue-600 text-white p-3 rounded-full shadow-lg border-4 border-white animate-bounce z-20 flex items-center gap-1"
+              >
+                  <CloudRain size={20} fill="currentColor"/>
+                  <span className="text-[10px] font-bold">+XP</span>
+              </button>
           )}
       </div>
       

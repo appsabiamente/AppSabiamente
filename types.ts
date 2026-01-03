@@ -90,6 +90,9 @@ export interface UserStats {
   // Daily Challenge Props
   dailyChallengeLastCompleted: string | null; // Date String YYYY-MM-DD
   dailyChallengesWon: number;
+
+  // Garden Feature
+  lastWateredDate: string | null; // Date String YYYY-MM-DD
 }
 
 export interface Minigame {

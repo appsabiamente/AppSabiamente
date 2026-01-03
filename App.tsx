@@ -3,7 +3,8 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Screen, UserStats, Minigame, ThemeId, AvatarId, StoreItem, Achievement, LeaderboardEntry, Language } from './types';
 import { Video, Star, Brain, Music, Calculator, ClipboardList, Coins, Target, Zap, Activity, Wind, Eye, Square, LayoutGrid, Info, Home, Store, User, RotateCcw, Check, Sparkles, Infinity as InfinityIcon, Lock, Unlock, Grid, Link, Quote, AlertCircle, Type, Grid3X3, Palette, Search, Trophy, Medal, Crown, Ghost, Sun, Gamepad, CheckCircle, XCircle, Box, Copy, TrendingUp, CloudRain, ListOrdered, MousePointerClick, SunMedium, Moon, Cloud, Flower, Settings as SettingsIcon, Users, Clover, ArrowUpCircle, Flame, ThumbsUp, Play, CheckSquare, HeartHandshake, WifiOff, SignalHigh } from 'lucide-react';
 
-import { setMuted, playClickSound, playFanfare } from './services/audioService';
+import { setMuted, playClickSound, playFanfare, playCelebrationSound } from './services/audioService';
+import { triggerFireworks, triggerConfettiCannon, triggerCentralBurst } from './services/celebrationService';
 import MemoryGame from './components/MemoryGame';
 import TriviaGame from './components/TriviaGame';
 import MathGame from './components/MathGame';
@@ -63,7 +64,8 @@ const INITIAL_STATS: UserStats = {
   raffleWins: 0,
   nextRaffleDate: getNextSunday(),
   dailyChallengeLastCompleted: null,
-  dailyChallengesWon: 0
+  dailyChallengesWon: 0,
+  lastWateredDate: null // Added for Garden Feature
 };
 
 const FAKE_NAMES = [
@@ -183,6 +185,7 @@ export default function App() {
             if (!parsed.nextRaffleDate) parsed.nextRaffleDate = getNextSunday();
             if (!parsed.dailyChallengesWon) parsed.dailyChallengesWon = 0;
             if (!parsed.dailyChallengeLastCompleted) parsed.dailyChallengeLastCompleted = null;
+            if (!parsed.lastWateredDate) parsed.lastWateredDate = null;
             
             const cleanStats = {...INITIAL_STATS, ...parsed};
             setStats(cleanStats);
@@ -342,7 +345,10 @@ export default function App() {
               updatedList.push(ach.id);
               newUnlock = true;
               coinsToAdd += ach.reward;
-              setUnlockedAchievement(ach); 
+              setUnlockedAchievement(ach);
+              // CELEBRATION
+              triggerConfettiCannon();
+              playFanfare();
           }
       });
       if(newUnlock) {
@@ -359,7 +365,49 @@ export default function App() {
           lastDailyClaim: today,
           dailyStreak: s.dailyStreak + 1,
       }));
+      // CELEBRATION
+      triggerCentralBurst();
+      playCelebrationSound();
       alert(`Recebido! +${rewardAmount} moedas.`);
+  };
+
+  // --- GARDEN WATERING LOGIC ---
+  const handleWaterGarden = () => {
+      requestAd(() => {
+          const today = new Date().toISOString().split('T')[0];
+          
+          let newExp = stats.experience + 15;
+          let newLevel = stats.level;
+          let levelUpReward = 0;
+          
+          if (newExp >= 100) {
+              newLevel += 1;
+              newExp = newExp - 100;
+              levelUpReward = newLevel * 50;
+              // LEVEL UP CELEBRATION
+              triggerFireworks();
+              playFanfare();
+              setLevelUpData({ level: newLevel, reward: levelUpReward });
+          } else {
+              triggerCentralBurst(); // XP Gain celebration
+              playCelebrationSound();
+          }
+
+          setStatsSynced(s => ({
+              ...s,
+              experience: newExp,
+              level: newLevel,
+              coins: s.coins + levelUpReward,
+              lastWateredDate: today
+          }));
+          
+          alert("Jardim regado com sucesso! +15 XP");
+      });
+  };
+
+  const canWaterToday = () => {
+      const today = new Date().toISOString().split('T')[0];
+      return stats.lastWateredDate !== today;
   };
 
   const requestAd = (cb: () => void) => {
@@ -404,6 +452,8 @@ export default function App() {
   const confirmRating = () => {
       setStatsSynced(s => ({...s, coins: s.coins + 100, hasRatedApp: true}));
       setIsRatingCheck(false);
+      triggerCentralBurst();
+      playCelebrationSound();
       alert("Obrigado por avaliar! +100 Moedas adicionadas.");
   }
 
@@ -438,6 +488,9 @@ export default function App() {
           dailyChallengeLastCompleted: today,
           dailyChallengesWon: prev.dailyChallengesWon + 1
       }));
+      // WIN CELEBRATION
+      triggerConfettiCannon();
+      playFanfare();
   };
 
   const handleGameComplete = (score: number) => {
@@ -463,7 +516,9 @@ export default function App() {
               levelUpReward = newLevel * 50; 
               newCoins += levelUpReward;
               setLevelUpData({ level: newLevel, reward: levelUpReward });
-              playFanfare(); // Play Fanfare on level up
+              // LEVEL UP CELEBRATION
+              triggerFireworks();
+              playFanfare();
           }
       }
 
@@ -477,6 +532,11 @@ export default function App() {
               newStreak = stats.streak + 1;
               streakUpdated = true;
               setStreakPopupValue(newStreak);
+              // STREAK CELEBRATION
+              setTimeout(() => {
+                  triggerCentralBurst();
+                  playCelebrationSound();
+              }, 300);
           } else if (daysDiff > 1) {
               newStreak = 1;
               streakUpdated = true;
@@ -707,7 +767,7 @@ export default function App() {
             {currentScreen === Screen.HOME && (
                 <div className="px-6 space-y-6">
                     <div className="mt-2 relative">
-                        <TreeOfMind stats={stats} />
+                        <TreeOfMind stats={stats} onWater={handleWaterGarden} canWater={canWaterToday()} />
                         
                         {/* Streak Counter */}
                         <div className="absolute top-0 right-0 bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 border border-orange-200 shadow-sm animate-pulse">
