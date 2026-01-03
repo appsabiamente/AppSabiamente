@@ -691,7 +691,7 @@ export default function App() {
       <div className="max-w-md mx-auto h-[100dvh] flex flex-col shadow-2xl relative overflow-hidden bg-brand-bg/90 backdrop-blur-md">
         
         {!isOnline && (
-            <div className="absolute inset-0 z-[99] bg-black/80 flex items-center justify-center p-6 backdrop-blur-sm animate-in fade-in">
+            <div className="absolute inset-0 z-[250] bg-black/80 flex items-center justify-center p-6 backdrop-blur-sm animate-in fade-in">
                 <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl">
                     <WifiOff size={64} className="mx-auto text-red-500 mb-6 animate-pulse" />
                     <h2 className="text-2xl font-black text-gray-800 mb-2">Sem Internet</h2>
@@ -1044,14 +1044,14 @@ export default function App() {
 
         {/* NEW STREAK POPUP */}
         {streakPopupValue !== null && (
-            <div className="absolute inset-0 z-[60] flex items-center justify-center p-6 bg-black/70 backdrop-blur-md animate-in fade-in duration-300">
+            <div className="absolute inset-0 z-[100] flex items-center justify-center p-6 bg-black/70 backdrop-blur-md animate-in fade-in duration-300">
                 <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl relative overflow-hidden animate-in zoom-in spin-in-1 duration-500">
                     <div className="absolute inset-0 bg-orange-400/20 z-0 animate-pulse"></div>
                     <Flame size={96} className="mx-auto text-orange-500 mb-4 animate-bounce relative z-10 fill-orange-500" />
                     <h2 className="text-4xl font-black text-gray-800 mb-2 relative z-10">{streakPopupValue} DIAS!</h2>
                     <p className="text-xl font-bold text-orange-600 mb-6 relative z-10">Sequência Incrível!</p>
                     <p className="text-gray-500 mb-8 relative z-10 text-sm">Sua disciplina está fortalecendo sua mente a cada dia.</p>
-                    <button onClick={() => setStreakPopupValue(null)} className="w-full bg-orange-500 text-white py-4 rounded-xl font-bold text-xl hover:scale-[1.02] transition-transform relative z-10 shadow-xl">Continuar</button>
+                    <button onClick={() => setStreakPopupValue(null)} className="w-full bg-orange-500 text-white py-4 rounded-xl font-bold text-xl hover:scale-[1.02] transition-transform relative z-10 shadow-xl cursor-pointer">Continuar</button>
                 </div>
             </div>
         )}
@@ -1071,7 +1071,7 @@ export default function App() {
         )}
 
         {levelUpData && (
-            <div className="absolute inset-0 z-50 flex items-center justify-center p-6 bg-black/60 backdrop-blur-md animate-in fade-in duration-500">
+            <div className="absolute inset-0 z-[110] flex items-center justify-center p-6 bg-black/60 backdrop-blur-md animate-in fade-in duration-500">
                 <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-500">
                     <div className="absolute inset-0 bg-green-400/20 z-0 animate-pulse"></div>
                     <ArrowUpCircle size={80} className="mx-auto text-green-500 mb-4 animate-bounce relative z-10" />
@@ -1081,14 +1081,14 @@ export default function App() {
                         <p className="text-sm font-bold text-yellow-700 uppercase tracking-wide">Recompensa</p>
                         <p className="text-4xl font-black text-yellow-500 flex items-center justify-center gap-2 mt-2">+{levelUpData.reward} <Coins size={32} className="fill-yellow-500"/></p>
                     </div>
-                    <button onClick={() => setLevelUpData(null)} className="mt-8 w-full bg-green-600 text-white py-4 rounded-xl font-bold text-xl hover:scale-[1.02] transition-transform relative z-10 shadow-xl">Continuar</button>
+                    <button onClick={() => setLevelUpData(null)} className="mt-8 w-full bg-green-600 text-white py-4 rounded-xl font-bold text-xl hover:scale-[1.02] transition-transform relative z-10 shadow-xl cursor-pointer">Continuar</button>
                 </div>
             </div>
         )}
 
         {unlockedAchievement && (
-            <div className="absolute inset-0 z-50 flex items-center justify-center p-6 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300">
-                <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="absolute inset-0 z-[100] flex items-center justify-center p-6 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300">
+                <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-300 pointer-events-auto">
                      <div className="absolute inset-0 bg-yellow-400/10 z-0"></div>
                      <Sparkles size={64} className="mx-auto text-yellow-500 mb-4 animate-bounce relative z-10" />
                      <h2 className="text-2xl font-black text-gray-800 mb-2 relative z-10">Conquista Desbloqueada!</h2>
@@ -1097,7 +1097,7 @@ export default function App() {
                          <p className="text-gray-600 text-sm">{unlockedAchievement.description}</p>
                      </div>
                      <p className="text-xl font-bold text-green-600 flex items-center justify-center gap-2 relative z-10"><Coins className="fill-current"/> +{unlockedAchievement.reward}</p>
-                     <button onClick={() => setUnlockedAchievement(null)} className="mt-4 w-full bg-gray-900 text-white py-3 rounded-xl font-bold">Incrível</button>
+                     <button onClick={() => setUnlockedAchievement(null)} className="mt-4 w-full bg-gray-900 text-white py-3 rounded-xl font-bold cursor-pointer relative z-20 hover:scale-105 active:scale-95 transition-transform shadow-lg">Incrível</button>
                 </div>
             </div>
         )}
