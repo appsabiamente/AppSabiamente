@@ -69,17 +69,17 @@ const INITIAL_STATS: UserStats = {
   lastWateredDate: null 
 };
 
-const FAKE_NAMES = [
-    "Roberto Almeida", 
-    "Ana Paula Souza", 
-    "Carlos Pereira", 
-    "Lúcia Fernandes", 
-    "Dr. Marcelo Lima", 
-    "Sônia Regina", 
-    "Paulo Santos", 
-    "Beatriz Costa", 
-    "Ricardo Oliveira", 
-    "Helena Martins"
+// Gerador de Nomes Brasileiros para o Ranking Massivo
+const FIRST_NAMES = [
+    "Maria", "João", "José", "Ana", "Francisco", "Luiz", "Paulo", "Carlos", "Manoel", "Pedro", 
+    "Francisca", "Marcos", "Raimundo", "Sebastião", "Antônio", "Marcelo", "Jorge", "Geraldo", 
+    "Adriana", "Sandra", "Márcia", "Vera", "Bento", "Helena", "Beatriz", "Ricardo", "Sônia", 
+    "Lúcia", "Roberto", "Fernanda", "Camila", "Lucas", "Matheus", "Gabriel", "Dona Cida", "Sr. João"
+];
+const LAST_NAMES = [
+    "Silva", "Santos", "Oliveira", "Souza", "Rodrigues", "Ferreira", "Alves", "Pereira", "Lima", 
+    "Gomes", "Costa", "Ribeiro", "Martins", "Carvalho", "Almeida", "Lopes", "Soares", "Fernandes", 
+    "Vieira", "Barbosa", "Rocha", "Dias", "Nascimento", "Andrade", "Moreira", "Nunes", "Marques"
 ];
 
 const ACHIEVEMENTS: Achievement[] = [
@@ -207,8 +207,8 @@ export default function App() {
             const cleanStats = {...INITIAL_STATS, ...parsed};
             setStats(cleanStats);
 
-            // CORREÇÃO CRÍTICA: Se o leaderboard estiver vazio ou corrompido (apenas usuário ou vazio), reinicializa
-            if (cleanStats.leaderboard.length < 5) {
+            // CORREÇÃO CRÍTICA: Se o leaderboard estiver vazio ou com poucos (legado), reinicializa com muitos
+            if (cleanStats.leaderboard.length < 50) {
                 initLeaderboard(cleanStats.coins);
             }
 
@@ -350,14 +350,39 @@ export default function App() {
       });
   };
 
+  // GENERATE MASSIVE LEADERBOARD
   const initLeaderboard = (userCoins: number) => {
       const entries: LeaderboardEntry[] = [];
       entries.push({ id: 'user', name: 'Você', coins: userCoins, avatar: 'base', isUser: true, streak: 0 });
-      FAKE_NAMES.forEach((name, i) => {
-          const variance = Math.floor(Math.random() * 5000) + 500; 
-          const randomStreak = Math.floor(Math.random() * 78) + 12;
-          entries.push({ id: `fake_${i}`, name, coins: variance, avatar: 'base', isUser: false, streak: randomStreak });
-      });
+      
+      const getRandomName = () => {
+          const first = FIRST_NAMES[Math.floor(Math.random() * FIRST_NAMES.length)];
+          const last = LAST_NAMES[Math.floor(Math.random() * LAST_NAMES.length)];
+          return `${first} ${last}`;
+      }
+
+      // Generate 1250 players with distributed scores to place user (likely with < 100 coins) around rank #1000
+      
+      // Tier 1: Elites (Top 50) - 10k to 100k coins
+      for(let i=0; i<50; i++) {
+          entries.push({ id: `bot_elite_${i}`, name: getRandomName(), coins: Math.floor(Math.random() * 90000) + 10000, avatar: 'dragon', isUser: false, streak: Math.floor(Math.random()*200)+50 });
+      }
+
+      // Tier 2: Veterans (Next 300) - 1k to 10k coins
+      for(let i=0; i<300; i++) {
+          entries.push({ id: `bot_vet_${i}`, name: getRandomName(), coins: Math.floor(Math.random() * 9000) + 1000, avatar: 'lion', isUser: false, streak: Math.floor(Math.random()*100)+20 });
+      }
+
+      // Tier 3: Regulars (Next 600) - 100 to 1k coins
+      for(let i=0; i<600; i++) {
+          entries.push({ id: `bot_reg_${i}`, name: getRandomName(), coins: Math.floor(Math.random() * 900) + 100, avatar: 'star', isUser: false, streak: Math.floor(Math.random()*30)+5 });
+      }
+
+      // Tier 4: Novices (Last ~300) - 0 to 100 coins (User will fight here initially)
+      for(let i=0; i<300; i++) {
+          entries.push({ id: `bot_nov_${i}`, name: getRandomName(), coins: Math.floor(Math.random() * 100), avatar: 'base', isUser: false, streak: Math.floor(Math.random()*5) });
+      }
+
       // Force update, using functional update to ensure we have latest state if needed, though here we replace leaderboard
       setStats(s => ({...s, leaderboard: entries}));
   };
@@ -366,8 +391,12 @@ export default function App() {
       setStatsSynced(prev => {
           const updated = prev.leaderboard.map(entry => {
               if (entry.isUser) return entry;
-              const change = Math.floor(Math.random() * 100) - 20; 
-              return { ...entry, coins: Math.max(0, entry.coins + change) };
+              // Small random fluctuation to make the world feel alive
+              if (Math.random() > 0.7) {
+                  const change = Math.floor(Math.random() * 20) - 5; 
+                  return { ...entry, coins: Math.max(0, entry.coins + change) };
+              }
+              return entry;
           });
           return { ...prev, leaderboard: updated };
       });
