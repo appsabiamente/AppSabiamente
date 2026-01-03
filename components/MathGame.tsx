@@ -15,6 +15,7 @@ const MathGame: React.FC<MathGameProps> = ({ onComplete, onExit, onRequestAd, hi
   const [answer, setAnswer] = useState(0);
   const [options, setOptions] = useState<number[]>([]);
   const [score, setScore] = useState(0);
+  const [level, setLevel] = useState(1);
   const [timeLeft, setTimeLeft] = useState(15);
   const timerRef = useRef<any>(null);
 
@@ -80,6 +81,7 @@ const MathGame: React.FC<MathGameProps> = ({ onComplete, onExit, onRequestAd, hi
     if (val === answer) {
         playSuccessSound();
         setScore(s => s + 3);
+        setLevel(l => l + 1); // Increase level on correct answer
         generateProblem();
     } else {
         playFailureSound();
@@ -106,7 +108,7 @@ const MathGame: React.FC<MathGameProps> = ({ onComplete, onExit, onRequestAd, hi
                     <Calculator size={24} />
                 </div>
                 <div>
-                    <h2 className="text-xl font-bold text-gray-800 leading-none">Cálculo Infinito</h2>
+                    <h2 className="text-xl font-bold text-gray-800 leading-none">Cálculo Nv.{level}</h2>
                     <div className="flex items-center gap-2 mt-1">
                         <span className="text-xs font-bold text-yellow-600 flex items-center gap-1"><Coins size={12}/> +{score}</span>
                         {highScore && highScore > 0 && <span className="text-[10px] text-gray-400 flex items-center gap-1"><Trophy size={10}/> Recorde: {highScore}</span>}

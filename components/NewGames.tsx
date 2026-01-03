@@ -317,18 +317,24 @@ export const SumTargetGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
      const [score, setScore] = useState(0);
      const [paused, setPaused] = useState(false);
      const [showVictory, setShowVictory] = useState(false);
+     const isGameOverRef = useRef(false); // Fix for incessant notifications
  
      useEffect(() => { resetRound(); }, []);
  
      useEffect(() => {
-         if (paused || showVictory) return; // Pausa se tiver vitória
+         if (paused || showVictory) return;
+         
          const t = setInterval(() => {
              setTimeLeft(prev => {
                  if (prev <= 1) {
-                     playFailureSound(0);
-                     const consolation = Math.floor(score / 2);
-                     alert(`Tempo acabou! Você levou ${consolation} moedas (metade).`);
-                     onComplete(consolation);
+                     clearInterval(t);
+                     if (!isGameOverRef.current) {
+                         isGameOverRef.current = true;
+                         playFailureSound(0);
+                         const consolation = Math.floor(score / 2);
+                         alert(`Tempo acabou! Você levou ${consolation} moedas (metade).`);
+                         onComplete(consolation);
+                     }
                      return 0;
                  }
                  return prev - 1;
@@ -338,6 +344,7 @@ export const SumTargetGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
      }, [paused, score, showVictory]);
  
      const resetRound = () => {
+         isGameOverRef.current = false;
          const t = Math.floor(Math.random() * 25) + 20; 
          setTarget(t);
          setCurrentSum(0);
@@ -364,6 +371,7 @@ export const SumTargetGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
      };
  
      const add = (num: number, idx: number) => {
+         if (isGameOverRef.current) return;
          const newSum = currentSum + num;
          setCurrentSum(newSum);
          const newOpts = [...options];
@@ -375,9 +383,12 @@ export const SumTargetGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
              setScore(s => s + 5);
              setShowVictory(true); // Exibe modal em vez de apenas resetar
          } else if (newSum > target) {
-             playFailureSound(0);
-             alert("Passou do valor! Fim de Jogo.");
-             onComplete(0); // LOSE ALL
+             if (!isGameOverRef.current) {
+                 isGameOverRef.current = true;
+                 playFailureSound(0);
+                 alert("Passou do valor! Fim de Jogo.");
+                 onComplete(0); // LOSE ALL
+             }
          }
      };
  
@@ -563,60 +574,45 @@ export const PatternGame: React.FC<GameProps> = ({ onComplete, onExit, highScore
 export const EstimateGame: React.FC<GameProps> = ({ onComplete, onExit, highScore, onRequestAd }) => {
     const [dots, setDots] = useState(0);
     const [showDots, setShowDots] = useState(true);
-    const [canGuess, setCanGuess] = useState(false); // New state for delay
     const [score, setScore] = useState(0);
     const [round, setRound] = useState(0);
-    const [timeLeft, setTimeLeft] = useState(10);
-    const [maxTime, setMaxTime] = useState(10);
-    const [paused, setPaused] = useState(false);
+    const [visibleOptionsCount, setVisibleOptionsCount] = useState(0);
 
+    // Round initialization
     useEffect(() => {
         const count = Math.floor(Math.random() * 20) + 5;
         setDots(count);
         setShowDots(true);
-        setCanGuess(false); // Reset guess state
-        const time = Math.max(3, 10 - Math.floor(round / 2));
-        setMaxTime(time);
-        setTimeLeft(time);
+        setVisibleOptionsCount(0); // Reset options visibility
 
+        // Show dots for limited time based on count (harder with more dots)
+        const showTime = 2000 + (count * 100); 
         const t = setTimeout(() => {
             setShowDots(false);
-            // ADDED 1s DELAY BEFORE BUTTONS APPEAR
-            setTimeout(() => setCanGuess(true), 1000); 
-        }, 1000); 
+        }, showTime); 
         return () => clearTimeout(t);
     }, [round]);
 
+    // Reveal options one by one after dots disappear
     useEffect(() => {
-        if(showDots || paused) return;
-        const t = setInterval(() => {
-            setTimeLeft(prev => {
-                if (prev <= 1) {
-                    clearInterval(t);
-                    playFailureSound(0);
-                    const consolation = Math.floor(score / 2);
-                    alert(`Tempo acabou! Você garantiu ${consolation} moedas.`);
-                    onComplete(consolation);
-                    return 0;
-                }
-                return prev - 1;
-            });
-        }, 1000);
-        return () => clearInterval(t);
-    }, [showDots, round, paused, score]);
+        if (!showDots) {
+            let i = 0;
+            const revealInterval = setInterval(() => {
+                setVisibleOptionsCount(prev => prev + 1);
+                i++;
+                if (i >= 3) clearInterval(revealInterval);
+            }, 500); // 0.5s delay between options
+            return () => clearInterval(revealInterval);
+        }
+    }, [showDots]);
 
     const handleAdvantage = () => {
-        setPaused(true);
         onRequestAd(() => {
             setShowDots(true); 
-            setCanGuess(false);
+            setVisibleOptionsCount(0);
             setTimeout(() => {
                 setShowDots(false);
-                setTimeout(() => {
-                    setCanGuess(true);
-                    setPaused(false);
-                }, 1000);
-            }, 1500);
+            }, 2000);
         });
     }
 
@@ -632,7 +628,9 @@ export const EstimateGame: React.FC<GameProps> = ({ onComplete, onExit, highScor
         }
     };
 
-    const options = [dots, dots + Math.floor(Math.random()*3)+1, dots - Math.floor(Math.random()*3)-1].sort(()=>Math.random()-0.5);
+    const options = React.useMemo(() => 
+        [dots, dots + Math.floor(Math.random()*3)+1, dots - Math.floor(Math.random()*3)-1].sort(()=>Math.random()-0.5)
+    , [dots]);
 
     return (
         <div className="flex flex-col h-full bg-brand-bg">
@@ -645,20 +643,21 @@ export const EstimateGame: React.FC<GameProps> = ({ onComplete, onExit, highScor
                 onGetAdvantage={handleAdvantage}
                 advantageLabel="Ver Bolinhas (Vídeo)"
                 highScore={highScore}
-                rightContent={
-                    <div className="flex flex-col items-end">
-                        <span className="font-bold text-red-500">{!showDots && `${timeLeft}s`}</span>
-                    </div>
-                }
             />
             <div className="flex-grow flex flex-col items-center justify-center p-6">
                 <div className="bg-white p-8 rounded-3xl w-72 h-72 flex flex-wrap gap-3 content-center justify-center shadow-soft mb-8 overflow-hidden">
                     {showDots ? [...Array(dots)].map((_,i) => <div key={i} className="w-5 h-5 bg-orange-400 rounded-full animate-bounce"></div>) : <div className="text-6xl font-bold text-gray-300">?</div>}
                 </div>
-                {!showDots && canGuess && (
-                    <div className="flex gap-4 animate-in fade-in slide-in-from-bottom-4">
+                {!showDots && (
+                    <div className="flex gap-4 min-h-[80px]">
                         {options.map((opt, i) => (
-                             <button key={i} onClick={() => handleGuess(opt)} className="bg-white px-8 py-5 rounded-2xl font-bold shadow-md text-xl hover:scale-105 transition-transform">{opt}</button>
+                             <button 
+                                key={i} 
+                                onClick={() => handleGuess(opt)} 
+                                className={`bg-white px-8 py-5 rounded-2xl font-bold shadow-md text-xl hover:scale-105 transition-all duration-500 transform ${i < visibleOptionsCount ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}
+                             >
+                                 {opt}
+                             </button>
                         ))}
                     </div>
                 )}

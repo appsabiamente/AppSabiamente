@@ -2,6 +2,7 @@
 import { TriviaQuestion, SequenceTask, IntruderTask, ScrambleTask, ProverbTask, DailyChallengeData } from "../types";
 import { GoogleGenAI, Type } from "@google/genai";
 
+// Initialize the API client
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 const MODEL_NAME = "gemini-3-flash-preview";
 
@@ -28,7 +29,10 @@ export const generateTriviaQuestion = async (topic: string = "general"): Promise
       }
     });
     return response.text ? JSON.parse(response.text) : null;
-  } catch (error) { return null; }
+  } catch (error) { 
+      console.error("Gemini Error:", error);
+      return null; 
+  }
 };
 
 export const generateSequenceTask = async (): Promise<SequenceTask | null> => {

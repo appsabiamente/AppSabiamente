@@ -643,7 +643,7 @@ export default function App() {
 
   return (
     <div className={`min-h-screen font-sans transition-colors duration-500 ${THEMES[stats.currentTheme]}`}>
-      <div className="max-w-md mx-auto h-screen flex flex-col shadow-2xl relative overflow-hidden bg-brand-bg/90 backdrop-blur-md">
+      <div className="max-w-md mx-auto h-[100dvh] flex flex-col shadow-2xl relative overflow-hidden bg-brand-bg/90 backdrop-blur-md">
         
         {/* === OFFLINE WARNING MODAL === */}
         {!isOnline && (
@@ -930,7 +930,10 @@ export default function App() {
 
         {/* === BOTTOM NAVIGATION BAR === */}
         {isMenuScreen(currentScreen) && (
-            <div className="absolute bottom-0 w-full bg-white/95 backdrop-blur-md border-t border-gray-100 flex justify-around items-center p-3 pb-5 z-40 shadow-[0_-5px_20px_rgba(0,0,0,0.05)]">
+            <div 
+                className="absolute bottom-0 w-full bg-white/95 backdrop-blur-md border-t border-gray-100 flex justify-around items-center p-3 z-40 shadow-[0_-5px_20px_rgba(0,0,0,0.05)]"
+                style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}
+            >
                 <button 
                     onClick={() => setCurrentScreen(Screen.HOME)} 
                     className={`flex flex-col items-center gap-1 transition-colors ${currentScreen === Screen.HOME ? 'text-brand-primary scale-105' : 'text-gray-400 hover:text-gray-600'}`}
