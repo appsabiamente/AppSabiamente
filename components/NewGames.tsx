@@ -225,6 +225,7 @@ export const WordChainGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
     const [gridWords, setGridWords] = useState<string[]>([]);
     const [foundWords, setFoundWords] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
+    const [errorWord, setErrorWord] = useState<string | null>(null);
     
     // HighScore aqui representa o NÍVEL ATUAL (Índice da categoria)
     const currentLevel = highScore || 0;
@@ -293,6 +294,8 @@ export const WordChainGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
             }
         } else {
             playFailureSound();
+            setErrorWord(word);
+            setTimeout(() => setErrorWord(null), 600); // Visual feedback duration
             // Perde vida a cada erro
             if (onLoseLife) onLoseLife();
         }
@@ -352,6 +355,7 @@ export const WordChainGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
                 <div className="grid grid-cols-4 gap-2">
                     {gridWords.map((word, idx) => {
                         const isFound = foundWords.includes(word);
+                        const isError = errorWord === word;
                         return (
                             <button 
                                 key={idx}
@@ -360,7 +364,9 @@ export const WordChainGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
                                 className={`p-2 py-4 rounded-xl font-bold text-xs sm:text-sm shadow-sm transition-all transform active:scale-95 border-b-4 flex items-center justify-center text-center break-words
                                 ${isFound 
                                     ? 'bg-green-500 text-white border-green-700' 
-                                    : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
+                                    : isError
+                                        ? 'bg-red-500 text-white border-red-700 animate-pulse'
+                                        : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
                             >
                                 {word}
                             </button>
