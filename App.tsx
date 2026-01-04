@@ -130,21 +130,22 @@ const STORE_ITEMS: StoreItem[] = [
     { id: 'av_dragon', type: 'AVATAR', name: 'Dragão (Nv. 10)', cost: 5000, value: 'dragon', minLevel: 10 },
 ];
 
+// Removed unlockLevel, unlockCost, unlockAd from all games
 const GAMES: Minigame[] = [
-  { id: 'chain', screen: Screen.GAME_WORD_CHAIN, title: 'Elo de Palavras', description: 'Categorias', icon: 'Link', category: 'Linguagem', color: 'text-blue-600 bg-blue-100', tutorial: 'Encontre todas as palavras do tema.', unlockLevel: 1 },
-  { id: 'zen', screen: Screen.GAME_ZEN_FOCUS, title: 'Foco Zen', description: 'Infinito', icon: 'Eye', category: 'Zen', color: 'text-teal-600 bg-teal-100', tutorial: 'Toque apenas nos círculos.', unlockLevel: 1 },
-  { id: 'sum', screen: Screen.GAME_SUM_TARGET, title: 'Soma Alvo', description: 'Infinito', icon: 'Target', category: 'Raciocínio', color: 'text-green-600 bg-green-100', tutorial: 'Atinga a soma alvo.', unlockLevel: 1 },
-  { id: 'cards', screen: Screen.GAME_CARDS, title: 'Cartas', description: 'Sorte', icon: 'Copy', category: 'Clássico', color: 'text-red-600 bg-red-100', tutorial: 'Maior ou menor?', unlockLevel: 1 },
-  { id: 'mem', screen: Screen.GAME_MEMORY, title: 'Memória', description: 'Pares', icon: 'Brain', category: 'Memória', color: 'text-indigo-600 bg-indigo-100', tutorial: 'Encontre os pares.', unlockLevel: 1 },
-  { id: 'triv', screen: Screen.GAME_TRIVIA, title: 'Fato ou Mito?', description: 'Quiz Rápido', icon: 'Brain', category: 'Linguagem', color: 'text-blue-600 bg-blue-100', tutorial: 'É verdade ou mentira?', unlockLevel: 1 },
-  { id: 'math', screen: Screen.GAME_MATH, title: 'Cálculo', description: 'Compras', icon: 'Calculator', category: 'Raciocínio', color: 'text-emerald-600 bg-emerald-100', tutorial: 'Faça as contas.', unlockLevel: 1 },
-  { id: 'patt', screen: Screen.GAME_PATTERN, title: 'Padrões', description: 'Visual', icon: 'Grid3X3', category: 'Memória', color: 'text-purple-600 bg-purple-100', tutorial: 'Repita o padrão.', unlockLevel: 1 },
-  { id: 'est', screen: Screen.GAME_ESTIMATE, title: 'Estimativa', description: 'Qtd.', icon: 'Activity', category: 'Raciocínio', color: 'text-orange-600 bg-orange-100', tutorial: 'Estime a quantidade.', unlockLevel: 1 },
-  { id: 'rot', screen: Screen.GAME_ROTATION, title: 'Rotação', description: 'Espacial', icon: 'RotateCcw', category: 'Raciocínio', color: 'text-cyan-600 bg-cyan-100', tutorial: 'Qual a figura rodada?', unlockAd: true },
-  { id: 'rain', screen: Screen.GAME_MATH_RAIN, title: 'Chuva', description: 'Rápido', icon: 'CloudRain', category: 'Raciocínio', color: 'text-blue-600 bg-blue-100', tutorial: 'Resolva antes de cair.', unlockLevel: 3 },
-  { id: 'col', screen: Screen.GAME_COLOR_MATCH, title: 'Cores', description: 'Rápido', icon: 'Palette', category: 'Atenção', color: 'text-pink-600 bg-pink-100', tutorial: 'A cor combina?', unlockLevel: 5 },
-  { id: 'mov', screen: Screen.GAME_MOVING_HUNT, title: 'Caça', description: 'Foco', icon: 'MousePointerClick', category: 'Atenção', color: 'text-red-600 bg-red-100', tutorial: 'Ache o único.', unlockLevel: 10 },
-  { id: 'hid', screen: Screen.GAME_HIDDEN, title: 'Oculto', description: 'Foco', icon: 'Search', category: 'Atenção', color: 'text-gray-600 bg-gray-200', tutorial: 'Encontre o objeto.', unlockCost: 10000 },
+  { id: 'chain', screen: Screen.GAME_WORD_CHAIN, title: 'Elo de Palavras', description: 'Categorias', icon: 'Link', category: 'Linguagem', color: 'text-blue-600 bg-blue-100', tutorial: 'Encontre todas as palavras do tema.' },
+  { id: 'zen', screen: Screen.GAME_ZEN_FOCUS, title: 'Foco Zen', description: 'Infinito', icon: 'Eye', category: 'Zen', color: 'text-teal-600 bg-teal-100', tutorial: 'Toque apenas nos círculos.' },
+  { id: 'sum', screen: Screen.GAME_SUM_TARGET, title: 'Soma Alvo', description: 'Infinito', icon: 'Target', category: 'Raciocínio', color: 'text-green-600 bg-green-100', tutorial: 'Atinga a soma alvo.' },
+  { id: 'cards', screen: Screen.GAME_CARDS, title: 'Cartas', description: 'Sorte', icon: 'Copy', category: 'Clássico', color: 'text-red-600 bg-red-100', tutorial: 'Maior ou menor?' },
+  { id: 'mem', screen: Screen.GAME_MEMORY, title: 'Memória', description: 'Pares', icon: 'Brain', category: 'Memória', color: 'text-indigo-600 bg-indigo-100', tutorial: 'Encontre os pares.' },
+  { id: 'triv', screen: Screen.GAME_TRIVIA, title: 'Fato ou Mito?', description: 'Quiz Rápido', icon: 'Brain', category: 'Linguagem', color: 'text-blue-600 bg-blue-100', tutorial: 'É verdade ou mentira?' },
+  { id: 'math', screen: Screen.GAME_MATH, title: 'Cálculo', description: 'Compras', icon: 'Calculator', category: 'Raciocínio', color: 'text-emerald-600 bg-emerald-100', tutorial: 'Faça as contas.' },
+  { id: 'patt', screen: Screen.GAME_PATTERN, title: 'Padrões', description: 'Visual', icon: 'Grid3X3', category: 'Memória', color: 'text-purple-600 bg-purple-100', tutorial: 'Repita o padrão.' },
+  { id: 'est', screen: Screen.GAME_ESTIMATE, title: 'Estimativa', description: 'Qtd.', icon: 'Activity', category: 'Raciocínio', color: 'text-orange-600 bg-orange-100', tutorial: 'Estime a quantidade.' },
+  { id: 'rot', screen: Screen.GAME_ROTATION, title: 'Rotação', description: 'Espacial', icon: 'RotateCcw', category: 'Raciocínio', color: 'text-cyan-600 bg-cyan-100', tutorial: 'Qual a figura rodada?' },
+  { id: 'rain', screen: Screen.GAME_MATH_RAIN, title: 'Chuva', description: 'Rápido', icon: 'CloudRain', category: 'Raciocínio', color: 'text-blue-600 bg-blue-100', tutorial: 'Resolva antes de cair.' },
+  { id: 'col', screen: Screen.GAME_COLOR_MATCH, title: 'Cores', description: 'Rápido', icon: 'Palette', category: 'Atenção', color: 'text-pink-600 bg-pink-100', tutorial: 'A cor combina?' },
+  { id: 'mov', screen: Screen.GAME_MOVING_HUNT, title: 'Caça', description: 'Foco', icon: 'MousePointerClick', category: 'Atenção', color: 'text-red-600 bg-red-100', tutorial: 'Ache o único.' },
+  { id: 'hid', screen: Screen.GAME_HIDDEN, title: 'Oculto', description: 'Foco', icon: 'Search', category: 'Atenção', color: 'text-gray-600 bg-gray-200', tutorial: 'Encontre o objeto.' },
 ];
 
 type LockType = 'LEVEL' | 'COINS' | 'AD';
@@ -530,6 +531,8 @@ export default function App() {
       setVictoryData({ score, gameId }); 
       
       const newHighScores = { ...stats.highScores };
+      
+      // Update High Score (Level)
       if (score > (newHighScores[gameId] || 0)) {
           newHighScores[gameId] = score;
       }
@@ -537,10 +540,30 @@ export default function App() {
       let newExp = stats.experience;
       let newLevel = stats.level;
       let levelUpReward = 0;
-      let newCoins = stats.coins + score;
+      
+      // Coin Logic: Differentiate between level-based games and score-based games
+      let coinsToAdd = score;
+      if (gameId === 'triv' || gameId === 'chain') {
+          // For Trivia and WordChain, completing a level gives a small fixed reward
+          // regardless of the level number (score param here is actually the next level index)
+          if (score > (stats.highScores[gameId] || 0)) {
+              coinsToAdd = 3; // Reduced reward for completing a new level
+          } else {
+              coinsToAdd = 0; // No reward for replaying already completed levels
+          }
+      }
 
-      if (score > 0) {
-          newExp += 10;
+      let newCoins = stats.coins + coinsToAdd;
+
+      if (coinsToAdd > 0) {
+          // XP Logic: 1 XP for specific level-based games, 10 XP for others
+          let xpGain = 10;
+          if (gameId === 'triv' || gameId === 'chain') {
+              xpGain = 1;
+          }
+
+          newExp += xpGain;
+
           if (newExp >= 100) {
               newLevel += 1;
               newExp = newExp - 100;
@@ -552,7 +575,7 @@ export default function App() {
 
       let newStreak = stats.streak;
 
-      if (score > 0) {
+      if (coinsToAdd > 0) {
           const daysDiff = getCalendarDaysDifference(stats.lastPlayedDate);
           if (daysDiff === 1) {
               newStreak = stats.streak + 1;
@@ -566,7 +589,7 @@ export default function App() {
       setStatsSynced(prev => {
           const updatedLeaderboard = prev.leaderboard.map(entry => {
               if (!entry.isUser) {
-                  const gain = Math.floor(Math.random() * (score > 0 ? score * 1.1 : 5));
+                  const gain = Math.floor(Math.random() * (coinsToAdd > 0 ? coinsToAdd * 1.1 : 5));
                   return { ...entry, coins: entry.coins + gain };
               }
               return entry; 
@@ -599,16 +622,7 @@ export default function App() {
   };
 
   const tryStartGame = (game: Minigame) => {
-    const isSpecialUnlocked = stats.unlockedGames.includes(game.id);
-    if (game.unlockLevel && stats.level < game.unlockLevel) {
-        setPendingUnlock({ game, type: 'LEVEL' }); return;
-    }
-    if (game.unlockCost && !isSpecialUnlocked) {
-        setPendingUnlock({ game, type: 'COINS' }); return;
-    }
-    if (game.unlockAd && !isSpecialUnlocked) {
-        setPendingUnlock({ game, type: 'AD' }); return;
-    }
+    // Removed all lock checks
     if (!stats.tutorialsSeen.includes(game.id)) {
         setActiveTutorial({ title: game.title, text: game.tutorial, gameId: game.id });
     } else {
@@ -617,6 +631,7 @@ export default function App() {
   };
   
   const handleBuyGame = () => {
+      // Function kept for compatibility but effectively unused now
       if (!pendingUnlock || !pendingUnlock.game.unlockCost) return;
       const cost = pendingUnlock.game.unlockCost;
       if (stats.coins >= cost) {
@@ -790,40 +805,17 @@ export default function App() {
                         
                         <div className="grid grid-cols-2 gap-4 pb-4">
                             {GAMES.map(g => {
-                                const isLevelLocked = g.unlockLevel && stats.level < g.unlockLevel;
-                                const isCostLocked = g.unlockCost && !stats.unlockedGames.includes(g.id);
-                                const isAdLocked = g.unlockAd && !stats.unlockedGames.includes(g.id);
-                                const isLocked = isLevelLocked || isCostLocked || isAdLocked;
                                 const score = stats.highScores[g.id] || 0;
 
                                 return (
                                 <button 
                                     key={g.id} 
                                     onClick={() => tryStartGame(g)} 
-                                    className={`relative p-4 rounded-3xl shadow-soft border flex flex-col gap-3 transition-all bg-white border-white hover:scale-[1.02] hover:shadow-lg ${isLocked ? 'opacity-90' : ''}`}
+                                    className={`relative p-4 rounded-3xl shadow-soft border flex flex-col gap-3 transition-all bg-white border-white hover:scale-[1.02] hover:shadow-lg`}
                                 >
-                                    {score > 0 && !isLocked && (
+                                    {score > 0 && (
                                         <div className="absolute top-2 right-2 bg-yellow-50 text-yellow-700 border border-yellow-200 text-[10px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-0.5 shadow-sm z-10">
                                             <Trophy size={8} className="fill-yellow-500 text-yellow-500" /> {score}
-                                        </div>
-                                    )}
-                                    {isLocked && (
-                                        <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-20 rounded-3xl flex flex-col items-center justify-center">
-                                            {isLevelLocked && (
-                                                <div className="bg-gray-900 text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1">
-                                                    <Lock size={12}/> Nv. {g.unlockLevel}
-                                                </div>
-                                            )}
-                                            {isCostLocked && (
-                                                <div className="bg-yellow-500 text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-md">
-                                                    <Lock size={12}/> 10k <Coins size={10} fill="currentColor"/>
-                                                </div>
-                                            )}
-                                            {isAdLocked && (
-                                                <div className="bg-blue-500 text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-md">
-                                                    <Video size={12}/> Desbloquear
-                                                </div>
-                                            )}
                                         </div>
                                     )}
                                     <div className="flex justify-between items-start">

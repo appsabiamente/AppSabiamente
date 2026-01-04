@@ -241,10 +241,29 @@ export const WordChainGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
         // Pega a categoria sequencialmente baseada no nível do usuário
         const cat = WORD_CATEGORIES[currentLevel];
         
+        // --- AUMENTO DE DIFICULDADE (HARDER LOGIC) ---
+        // Meta: 16 palavras no total (Grade 4x4)
+        // 5 Corretas
+        // 11 Distratores (4 nativos + 7 aleatórios de outras categorias)
+        
+        const otherCategories = WORD_CATEGORIES.filter(c => c.topic !== cat.topic);
+        const randomDistractors: string[] = [];
+        
+        while (randomDistractors.length < 7) {
+            const randomCat = otherCategories[Math.floor(Math.random() * otherCategories.length)];
+            const allWords = [...randomCat.correct, ...randomCat.distractors];
+            const randomWord = allWords[Math.floor(Math.random() * allWords.length)];
+            if (!randomDistractors.includes(randomWord) && !cat.correct.includes(randomWord) && !cat.distractors.includes(randomWord)) {
+                randomDistractors.push(randomWord);
+            }
+        }
+
+        const allDistractors = [...cat.distractors, ...randomDistractors];
+
         const data: WordLinkBoard = {
             topic: cat.topic,
             correctWords: cat.correct,
-            distractors: cat.distractors
+            distractors: allDistractors
         };
 
         setBoard(data);
@@ -344,7 +363,8 @@ export const WordChainGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
                     <p className="text-blue-600 text-xs font-bold mt-2">Encontre {board?.correctWords.length} palavras</p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                {/* GRADE MAIOR (4 colunas) para acomodar 16 palavras */}
+                <div className="grid grid-cols-4 gap-2">
                     {gridWords.map((word, idx) => {
                         const isFound = foundWords.includes(word);
                         return (
@@ -352,13 +372,12 @@ export const WordChainGame: React.FC<GameProps> = ({ onComplete, onExit, onReque
                                 key={idx}
                                 onClick={() => handleWordTap(word)}
                                 disabled={isFound}
-                                className={`p-4 rounded-xl font-bold text-lg shadow-sm transition-all transform active:scale-95 border-b-4
+                                className={`p-2 py-4 rounded-xl font-bold text-xs sm:text-sm shadow-sm transition-all transform active:scale-95 border-b-4 flex items-center justify-center text-center break-words
                                 ${isFound 
                                     ? 'bg-green-500 text-white border-green-700' 
                                     : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
                             >
                                 {word}
-                                {isFound && <CheckCircle size={16} className="inline ml-2" />}
                             </button>
                         )
                     })}
@@ -587,7 +606,7 @@ export const ZenFocusGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
         if (gameOver) return;
         if (type === 'good') {
             playSuccessSound();
-            setScore(s => s + 2); 
+            setScore(s => s + 1); 
             setItems(prev => prev.filter(i => i.id !== id));
         } else {
             playFailureSound(0);
