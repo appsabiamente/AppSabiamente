@@ -382,6 +382,7 @@ export const RotationGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
     const [sessionScore, setSessionScore] = useState(0);
     const [showCheckpoint, setShowCheckpoint] = useState(false);
     const [eliminatedOption, setEliminatedOption] = useState<number | null>(null);
+    const [timeLeft, setTimeLeft] = useState(15);
     
     const SYMBOLS = ["F", "R", "L", "G", "P", "J", "➔", "▲", "★", "♣", "7", "4"];
     const TASKS = [
@@ -392,11 +393,30 @@ export const RotationGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
 
     useEffect(() => { nextRound(); }, []); 
 
+    useEffect(() => {
+        if (showCheckpoint) return; 
+        
+        const timer = setInterval(() => {
+            setTimeLeft(prev => {
+                if (prev <= 1) {
+                    clearInterval(timer);
+                    playFailureSound();
+                    alert(`Tempo esgotado! Você perdeu o acumulado.`);
+                    onComplete(0);
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+        return () => clearInterval(timer);
+    }, [targetSymbol, showCheckpoint]);
+
     const nextRound = () => {
         setTargetSymbol(SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)]);
         setBaseAngle(Math.floor(Math.random() * 8) * 45); 
         setRotationTask(TASKS[Math.floor(Math.random() * TASKS.length)]);
         setEliminatedOption(null);
+        setTimeLeft(15); // Reset timer for new round
     }
 
     const handleGuess = (guessAngle: number) => {
@@ -458,7 +478,18 @@ export const RotationGame: React.FC<GameProps> = ({ onComplete, onExit, onReques
 
     return (
         <div className="flex flex-col h-full bg-brand-bg relative">
-            <GameHeader title="Rotação" icon={<RotateCcw size={24} className="text-cyan-500"/>} onExit={onExit} currentCoins={sessionScore} onCollect={() => {}} onGetAdvantage={handleAdvantage} advantageLabel="Eliminar 1 Errada (Vídeo)" highScore={highScore} scoreLabel="Máx Pontos"/>
+            <GameHeader 
+                title="Rotação" 
+                icon={<RotateCcw size={24} className="text-cyan-500"/>} 
+                onExit={onExit} 
+                currentCoins={sessionScore} 
+                onCollect={() => onComplete(sessionScore)} 
+                onGetAdvantage={handleAdvantage} 
+                advantageLabel="Eliminar 1 Errada (Vídeo)" 
+                highScore={highScore} 
+                scoreLabel="Máx Pontos"
+                rightContent={<span className="font-bold text-red-500">{timeLeft}s</span>}
+            />
             {showCheckpoint && (
                 <div className="absolute inset-0 bg-black/80 z-50 flex items-center justify-center p-6 animate-in fade-in">
                     <div className="bg-white rounded-3xl p-8 w-full max-w-sm text-center shadow-2xl">

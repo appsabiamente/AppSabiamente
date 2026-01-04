@@ -63,6 +63,11 @@ const INITIAL_STATS: UserStats = {
   weeklyTickets: 0,
   raffleWins: 0,
   nextRaffleDate: getNextSunday(),
+  lastRaffleWinners: [
+      { name: 'Antônio Ferreira', prize: 'Ouro', amount: 5000 },
+      { name: 'Maria Helena S.', prize: 'Prata', amount: 2500 },
+      { name: 'José Carlos B.', prize: 'Bronze', amount: 1000 }
+  ],
   dailyChallengeLastCompleted: null,
   dailyChallengesWon: 0,
   lastWateredDate: null,
@@ -99,7 +104,7 @@ const ACHIEVEMENTS: Achievement[] = [
     { id: 'brilliant', title: 'Mente Brilhante', description: 'Alcance o Nível 20.', icon: 'Sun', unlocked: false, reward: 500, condition: s => s.level >= 20 },
     { id: 'collector', title: 'Colecionador', description: 'Tenha 3 avatares.', icon: 'User', unlocked: false, reward: 250, condition: s => s.unlockedAvatars.length >= 3 },
     { id: 'millionaire', title: 'Tesouro', description: 'Acumule 2000 moedas.', icon: 'Coins', unlocked: false, reward: 400, condition: s => s.coins >= 2000 },
-    { id: 'unstoppable', title: 'Imparável', description: 'Atinja Nível 30.', icon: 'Zap', unlocked: false, reward: 1000, condition: s => s.level >= 30 },
+    { id: 'unstoppable', title: 'Imparável', description: 'Atinja o Nível Máximo (21).', icon: 'Zap', unlocked: false, reward: 1000, condition: s => s.level >= 21 },
     { id: 'encyclopedia', title: 'Enciclopédia', description: 'Recorde > 50 na Sabedoria.', icon: 'Book', unlocked: false, reward: 100, condition: s => (s.highScores['triv'] || 0) >= 50 },
     { id: 'calculator', title: 'Calculadora', description: 'Recorde > 50 no Cálculo.', icon: 'Calculator', unlocked: false, reward: 100, condition: s => (s.highScores['math'] || 0) >= 50 },
     { id: 'eagle_eye', title: 'Olhos de Águia', description: 'Recorde > 50 no Intruso.', icon: 'Eye', unlocked: false, reward: 100, condition: s => (s.highScores['intr'] || 0) >= 50 },
@@ -207,6 +212,7 @@ export default function App() {
             if (parsed.weeklyTickets === undefined) parsed.weeklyTickets = 0;
             if (parsed.raffleWins === undefined) parsed.raffleWins = 0;
             if (!parsed.nextRaffleDate) parsed.nextRaffleDate = getNextSunday();
+            if (!parsed.lastRaffleWinners) parsed.lastRaffleWinners = INITIAL_STATS.lastRaffleWinners; // Init with default if missing
             if (!parsed.dailyChallengesWon) parsed.dailyChallengesWon = 0;
             if (!parsed.dailyChallengeLastCompleted) parsed.dailyChallengeLastCompleted = null;
             if (!parsed.lastWateredDate) parsed.lastWateredDate = null;

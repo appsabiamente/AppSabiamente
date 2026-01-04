@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { UserStats } from '../types';
-import { Clover, Coins, Dices, RotateCcw, Video, Calendar, Check, Lock, Ticket, Timer, Gift } from 'lucide-react';
+import { UserStats, RaffleWinner } from '../types';
+import { Clover, Coins, Dices, RotateCcw, Video, Calendar, Check, Lock, Ticket, Timer, Gift, User, Award } from 'lucide-react';
 import { playSuccessSound, playFailureSound, playCelebrationSound } from '../services/audioService';
 import { triggerFireworks } from '../services/celebrationService';
 import DailyChallenge from './DailyChallenge';
@@ -28,6 +28,13 @@ const RAFFLE_JACKPOTS = [
     { name: "Ouro", amount: 5000, chance: 0.001 },   
     { name: "Prata", amount: 2500, chance: 0.005 }, 
     { name: "Bronze", amount: 1000, chance: 0.010 }  
+];
+
+const FAKE_WINNERS_POOL = [
+    "Vera Lúcia", "Francisco Santos", "Tereza Cristina", "Paulo Roberto", 
+    "Sônia Maria", "Luiz Gonzaga", "Ana Beatriz", "Ricardo Alves", 
+    "Geraldo Magela", "Heloísa Rocha", "Antônio Carlos", "Maria de Fátima",
+    "José Pereira", "Márcia Regina", "Cláudio Roberto"
 ];
 
 const Betting: React.FC<BettingProps> = ({ stats, onUpdateStats, onRequestAd, onClaimDaily, onWinDaily }) => {
@@ -87,15 +94,37 @@ const Betting: React.FC<BettingProps> = ({ stats, onUpdateStats, onRequestAd, on
             setIsCheckingDraw(true);
             setTimeout(() => {
                 let winAmount = 0;
-                let prizeName = "";
+                let prizeName: 'Ouro' | 'Prata' | 'Bronze' | '' = '';
                 let didWin = false;
 
+                // Check if user won
                 for (let i = 0; i < stats.weeklyTickets; i++) {
                     const roll = Math.random();
                     if (roll < RAFFLE_JACKPOTS[0].chance) { winAmount = Math.max(winAmount, RAFFLE_JACKPOTS[0].amount); prizeName="Ouro"; didWin=true; }
                     else if (roll < RAFFLE_JACKPOTS[1].chance) { winAmount = Math.max(winAmount, RAFFLE_JACKPOTS[1].amount); prizeName = prizeName === "Ouro" ? "Ouro" : "Prata"; didWin=true;}
                     else if (roll < RAFFLE_JACKPOTS[2].chance) { winAmount = Math.max(winAmount, RAFFLE_JACKPOTS[2].amount); prizeName = (prizeName === "Ouro" || prizeName === "Prata") ? prizeName : "Bronze"; didWin=true;}
                 }
+
+                // Generate Winners List (Mix of Bots and User if won)
+                const newWinners: RaffleWinner[] = [];
+                const prizes = [
+                    { name: 'Ouro', amount: 5000 },
+                    { name: 'Prata', amount: 2500 },
+                    { name: 'Bronze', amount: 1000 }
+                ] as const;
+
+                prizes.forEach(p => {
+                    if (didWin && prizeName === p.name) {
+                        newWinners.push({ name: 'Você', prize: p.name, amount: p.amount });
+                    } else {
+                        // Pick random distinct name
+                        let randomName = FAKE_WINNERS_POOL[Math.floor(Math.random() * FAKE_WINNERS_POOL.length)];
+                        while(newWinners.some(w => w.name === randomName)) {
+                             randomName = FAKE_WINNERS_POOL[Math.floor(Math.random() * FAKE_WINNERS_POOL.length)];
+                        }
+                        newWinners.push({ name: randomName, prize: p.name, amount: p.amount });
+                    }
+                });
 
                 if (didWin) {
                     playSuccessSound();
@@ -105,7 +134,8 @@ const Betting: React.FC<BettingProps> = ({ stats, onUpdateStats, onRequestAd, on
                         coins: stats.coins + winAmount,
                         weeklyTickets: 0,
                         raffleWins: stats.raffleWins + 1,
-                        nextRaffleDate: getNextSundayDate()
+                        nextRaffleDate: getNextSundayDate(),
+                        lastRaffleWinners: newWinners
                     });
                 } else {
                     if (stats.weeklyTickets > 0) {
@@ -113,7 +143,8 @@ const Betting: React.FC<BettingProps> = ({ stats, onUpdateStats, onRequestAd, on
                     }
                     onUpdateStats({
                         weeklyTickets: 0,
-                        nextRaffleDate: getNextSundayDate()
+                        nextRaffleDate: getNextSundayDate(),
+                        lastRaffleWinners: newWinners
                     });
                 }
                 setIsCheckingDraw(false);
@@ -304,6 +335,33 @@ const Betting: React.FC<BettingProps> = ({ stats, onUpdateStats, onRequestAd, on
                     <p className="text-center text-[10px] mt-3 opacity-70">Quanto mais cupons, maior a chance. Sem limite de compra!</p>
                 </div>
             </div>
+
+            {/* LAST WEEK WINNERS */}
+            {stats.lastRaffleWinners && stats.lastRaffleWinners.length > 0 && (
+                <div className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100">
+                    <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-3 flex items-center gap-2">
+                        <Award size={16}/> Vencedores da Semana Passada
+                    </h3>
+                    <div className="space-y-3">
+                        {stats.lastRaffleWinners.map((winner, idx) => (
+                            <div key={idx} className="flex items-center gap-3 p-2 rounded-xl bg-gray-50">
+                                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white shadow-sm
+                                    ${winner.prize === 'Ouro' ? 'bg-yellow-400' : winner.prize === 'Prata' ? 'bg-gray-400' : 'bg-orange-400'}
+                                `}>
+                                    {idx + 1}
+                                </div>
+                                <div className="flex-grow">
+                                    <p className="font-bold text-gray-800 text-sm">{winner.name}</p>
+                                    <p className="text-[10px] text-gray-500 font-bold uppercase">{winner.prize}</p>
+                                </div>
+                                <div className="font-black text-gray-700 text-sm flex items-center gap-1">
+                                    +{winner.amount} <Coins size={12} className="text-yellow-500 fill-yellow-500"/>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             <div className="flex items-center gap-3 mt-8">
                 <div className="bg-purple-100 p-3 rounded-full text-purple-600">

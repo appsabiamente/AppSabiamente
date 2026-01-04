@@ -58,6 +58,12 @@ export interface LeaderboardEntry {
   streak: number; 
 }
 
+export interface RaffleWinner {
+    name: string;
+    prize: 'Ouro' | 'Prata' | 'Bronze';
+    amount: number;
+}
+
 export interface UserStats {
   userName: string;
   coins: number;
@@ -84,7 +90,8 @@ export interface UserStats {
   
   weeklyTickets: number;
   raffleWins: number;
-  nextRaffleDate: string; 
+  nextRaffleDate: string;
+  lastRaffleWinners: RaffleWinner[]; // Novos vencedores fake/reais
 
   dailyChallengeLastCompleted: string | null; 
   dailyChallengesWon: number;
