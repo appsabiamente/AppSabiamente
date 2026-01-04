@@ -104,11 +104,11 @@ const ACHIEVEMENTS: Achievement[] = [
     { id: 'brilliant', title: 'Mente Brilhante', description: 'Alcance o Nível 20.', icon: 'Sun', unlocked: false, reward: 500, condition: s => s.level >= 20 },
     { id: 'collector', title: 'Colecionador', description: 'Tenha 3 avatares.', icon: 'User', unlocked: false, reward: 250, condition: s => s.unlockedAvatars.length >= 3 },
     { id: 'millionaire', title: 'Tesouro', description: 'Acumule 2000 moedas.', icon: 'Coins', unlocked: false, reward: 400, condition: s => s.coins >= 2000 },
-    { id: 'unstoppable', title: 'Imparável', description: 'Atinja o Nível Máximo (21).', icon: 'Zap', unlocked: false, reward: 1000, condition: s => s.level >= 21 },
-    { id: 'encyclopedia', title: 'Enciclopédia', description: 'Recorde > 50 na Sabedoria.', icon: 'Book', unlocked: false, reward: 100, condition: s => (s.highScores['triv'] || 0) >= 50 },
+    { id: 'unstoppable', title: 'Imparável', description: 'Atinja o Nível Máximo.', icon: 'Zap', unlocked: false, reward: 1000, condition: s => s.level >= 21 },
     { id: 'calculator', title: 'Calculadora', description: 'Recorde > 50 no Cálculo.', icon: 'Calculator', unlocked: false, reward: 100, condition: s => (s.highScores['math'] || 0) >= 50 },
-    { id: 'eagle_eye', title: 'Olhos de Águia', description: 'Recorde > 50 no Intruso.', icon: 'Eye', unlocked: false, reward: 100, condition: s => (s.highScores['intr'] || 0) >= 50 },
-    { id: 'poet', title: 'Poeta', description: 'Recorde > 50 no Elo.', icon: 'Feather', unlocked: false, reward: 100, condition: s => (s.highScores['chain'] || 0) >= 50 },
+    { id: 'poet', title: 'Poeta', description: 'Completou todos os níveis do elo de palavras.', icon: 'Feather', unlocked: false, reward: 300, condition: s => (s.highScores['chain'] || 0) >= 150 },
+    { id: 'fact_master', title: 'Sábio Supremo', description: 'Completou todos os níveis do fato ou mito.', icon: 'Book', unlocked: false, reward: 300, condition: s => (s.highScores['triv'] || 0) >= 200 },
+    { id: 'hunter', title: 'Caçador', description: 'Atingiu 50 pontos no jogo caça.', icon: 'MousePointerClick', unlocked: false, reward: 100, condition: s => (s.highScores['mov'] || 0) >= 50 },
     { id: 'zen_master', title: 'Mestre Zen', description: 'Recorde > 50 no Foco Zen.', icon: 'Leaf', unlocked: false, reward: 100, condition: s => (s.highScores['zen'] || 0) >= 50 },
 ];
 
