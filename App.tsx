@@ -200,6 +200,27 @@ export default function App() {
   const [showLivesModal, setShowLivesModal] = useState(false);
   const [timeToNextLife, setTimeToNextLife] = useState<string>("");
 
+  const initLeaderboard = (userCoins: number) => {
+      const entries: LeaderboardEntry[] = [];
+      entries.push({ id: 'user', name: 'Você', coins: userCoins, avatar: 'base', isUser: true, streak: 0 });
+      
+      const getRandomName = () => {
+          if (Math.random() < 0.15) {
+              return FANTASY_NAMES[Math.floor(Math.random() * FANTASY_NAMES.length)];
+          }
+          const first = FIRST_NAMES[Math.floor(Math.random() * FIRST_NAMES.length)];
+          const last = LAST_NAMES[Math.floor(Math.random() * LAST_NAMES.length)];
+          return `${first} ${last}`;
+      }
+
+      for(let i=0; i<50; i++) entries.push({ id: `bot_elite_${i}`, name: getRandomName(), coins: Math.floor(Math.random() * 90000) + 10000, avatar: 'dragon', isUser: false, streak: Math.floor(Math.random()*200)+50 });
+      for(let i=0; i<300; i++) entries.push({ id: `bot_vet_${i}`, name: getRandomName(), coins: Math.floor(Math.random() * 9000) + 1000, avatar: 'lion', isUser: false, streak: Math.floor(Math.random()*100)+20 });
+      for(let i=0; i<600; i++) entries.push({ id: `bot_reg_${i}`, name: getRandomName(), coins: Math.floor(Math.random() * 900) + 100, avatar: 'star', isUser: false, streak: Math.floor(Math.random()*30)+5 });
+      for(let i=0; i<300; i++) entries.push({ id: `bot_nov_${i}`, name: getRandomName(), coins: Math.floor(Math.random() * 100), avatar: 'base', isUser: false, streak: Math.floor(Math.random()*5) });
+
+      setStats(s => ({...s, leaderboard: entries}));
+  };
+
   useEffect(() => {
     const saved = localStorage.getItem('sabiamente_stats_v8');
     if (saved) {
@@ -388,27 +409,6 @@ export default function App() {
           const next = updater(prev);
           return syncWithLeaderboard(next);
       });
-  };
-
-  const initLeaderboard = (userCoins: number) => {
-      const entries: LeaderboardEntry[] = [];
-      entries.push({ id: 'user', name: 'Você', coins: userCoins, avatar: 'base', isUser: true, streak: 0 });
-      
-      const getRandomName = () => {
-          if (Math.random() < 0.15) {
-              return FANTASY_NAMES[Math.floor(Math.random() * FANTASY_NAMES.length)];
-          }
-          const first = FIRST_NAMES[Math.floor(Math.random() * FIRST_NAMES.length)];
-          const last = LAST_NAMES[Math.floor(Math.random() * LAST_NAMES.length)];
-          return `${first} ${last}`;
-      }
-
-      for(let i=0; i<50; i++) entries.push({ id: `bot_elite_${i}`, name: getRandomName(), coins: Math.floor(Math.random() * 90000) + 10000, avatar: 'dragon', isUser: false, streak: Math.floor(Math.random()*200)+50 });
-      for(let i=0; i<300; i++) entries.push({ id: `bot_vet_${i}`, name: getRandomName(), coins: Math.floor(Math.random() * 9000) + 1000, avatar: 'lion', isUser: false, streak: Math.floor(Math.random()*100)+20 });
-      for(let i=0; i<600; i++) entries.push({ id: `bot_reg_${i}`, name: getRandomName(), coins: Math.floor(Math.random() * 900) + 100, avatar: 'star', isUser: false, streak: Math.floor(Math.random()*30)+5 });
-      for(let i=0; i<300; i++) entries.push({ id: `bot_nov_${i}`, name: getRandomName(), coins: Math.floor(Math.random() * 100), avatar: 'base', isUser: false, streak: Math.floor(Math.random()*5) });
-
-      setStats(s => ({...s, leaderboard: entries}));
   };
 
   const refreshRanking = () => {
