@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Screen, UserStats, Minigame, ThemeId, AvatarId, StoreItem, Achievement, LeaderboardEntry, Language } from './types';
-import { Video, Star, Brain, Music, Calculator, ClipboardList, Coins, Target, Zap, Activity, Wind, Eye, Square, LayoutGrid, Info, Home, Store, User, RotateCcw, Check, Sparkles, Infinity as InfinityIcon, Lock, Unlock, Grid, Link, Quote, AlertCircle, Type, Grid3X3, Palette, Search, Trophy, Medal, Crown, Ghost, Sun, Gamepad, CheckCircle, XCircle, Box, Copy, TrendingUp, CloudRain, ListOrdered, MousePointerClick, SunMedium, Moon, Cloud, Flower, Settings as SettingsIcon, Users, Clover, ArrowUpCircle, Flame, ThumbsUp, Play, CheckSquare, HeartHandshake, WifiOff, SignalHigh, Book, Feather, Leaf, Edit3, Image as ImageIcon, Send } from 'lucide-react';
+import { Video, Star, Brain, Music, Calculator, ClipboardList, Coins, Target, Zap, Activity, Wind, Eye, Square, LayoutGrid, Info, Home, Store, User, RotateCcw, Check, Sparkles, Infinity as InfinityIcon, Lock, Unlock, Grid, Link, Quote, AlertCircle, Type, Grid3X3, Palette, Search, Trophy, Medal, Crown, Ghost, Sun, Gamepad, CheckCircle, XCircle, Box, Copy, TrendingUp, CloudRain, ListOrdered, MousePointerClick, SunMedium, Moon, Cloud, Flower, Settings as SettingsIcon, Users, Clover, ArrowUpCircle, Flame, ThumbsUp, Play, CheckSquare, HeartHandshake, WifiOff, SignalHigh, Book, Feather, Leaf, Edit3, Image as ImageIcon, Send, Heart, Clock } from 'lucide-react';
 
-import { setMuted, playClickSound, playFanfare, playCelebrationSound, playMagicalSound } from './services/audioService';
+import { setMuted, playClickSound, playFanfare, playCelebrationSound, playMagicalSound, playFailureSound } from './services/audioService';
 import { triggerFireworks, triggerConfettiCannon, triggerCentralBurst } from './services/celebrationService';
 import MemoryGame from './components/MemoryGame';
 import TriviaGame from './components/TriviaGame';
@@ -65,7 +65,9 @@ const INITIAL_STATS: UserStats = {
   nextRaffleDate: getNextSunday(),
   dailyChallengeLastCompleted: null,
   dailyChallengesWon: 0,
-  lastWateredDate: null 
+  lastWateredDate: null,
+  lives: 5,
+  lastLifeRegen: null
 };
 
 const FIRST_NAMES = [
@@ -130,22 +132,21 @@ const STORE_ITEMS: StoreItem[] = [
     { id: 'av_dragon', type: 'AVATAR', name: 'Dragão (Nv. 10)', cost: 5000, value: 'dragon', minLevel: 10 },
 ];
 
-// Removed unlockLevel, unlockCost, unlockAd from all games
 const GAMES: Minigame[] = [
-  { id: 'chain', screen: Screen.GAME_WORD_CHAIN, title: 'Elo de Palavras', description: 'Categorias', icon: 'Link', category: 'Linguagem', color: 'text-blue-600 bg-blue-100', tutorial: 'Encontre todas as palavras do tema.' },
-  { id: 'zen', screen: Screen.GAME_ZEN_FOCUS, title: 'Foco Zen', description: 'Infinito', icon: 'Eye', category: 'Zen', color: 'text-teal-600 bg-teal-100', tutorial: 'Toque apenas nos círculos.' },
-  { id: 'sum', screen: Screen.GAME_SUM_TARGET, title: 'Soma Alvo', description: 'Infinito', icon: 'Target', category: 'Raciocínio', color: 'text-green-600 bg-green-100', tutorial: 'Atinga a soma alvo.' },
-  { id: 'cards', screen: Screen.GAME_CARDS, title: 'Cartas', description: 'Sorte', icon: 'Copy', category: 'Clássico', color: 'text-red-600 bg-red-100', tutorial: 'Maior ou menor?' },
-  { id: 'mem', screen: Screen.GAME_MEMORY, title: 'Memória', description: 'Pares', icon: 'Brain', category: 'Memória', color: 'text-indigo-600 bg-indigo-100', tutorial: 'Encontre os pares.' },
-  { id: 'triv', screen: Screen.GAME_TRIVIA, title: 'Fato ou Mito?', description: 'Quiz Rápido', icon: 'Brain', category: 'Linguagem', color: 'text-blue-600 bg-blue-100', tutorial: 'É verdade ou mentira?' },
-  { id: 'math', screen: Screen.GAME_MATH, title: 'Cálculo', description: 'Compras', icon: 'Calculator', category: 'Raciocínio', color: 'text-emerald-600 bg-emerald-100', tutorial: 'Faça as contas.' },
-  { id: 'patt', screen: Screen.GAME_PATTERN, title: 'Padrões', description: 'Visual', icon: 'Grid3X3', category: 'Memória', color: 'text-purple-600 bg-purple-100', tutorial: 'Repita o padrão.' },
-  { id: 'est', screen: Screen.GAME_ESTIMATE, title: 'Estimativa', description: 'Qtd.', icon: 'Activity', category: 'Raciocínio', color: 'text-orange-600 bg-orange-100', tutorial: 'Estime a quantidade.' },
-  { id: 'rot', screen: Screen.GAME_ROTATION, title: 'Rotação', description: 'Espacial', icon: 'RotateCcw', category: 'Raciocínio', color: 'text-cyan-600 bg-cyan-100', tutorial: 'Qual a figura rodada?' },
-  { id: 'rain', screen: Screen.GAME_MATH_RAIN, title: 'Chuva', description: 'Rápido', icon: 'CloudRain', category: 'Raciocínio', color: 'text-blue-600 bg-blue-100', tutorial: 'Resolva antes de cair.' },
-  { id: 'col', screen: Screen.GAME_COLOR_MATCH, title: 'Cores', description: 'Rápido', icon: 'Palette', category: 'Atenção', color: 'text-pink-600 bg-pink-100', tutorial: 'A cor combina?' },
-  { id: 'mov', screen: Screen.GAME_MOVING_HUNT, title: 'Caça', description: 'Foco', icon: 'MousePointerClick', category: 'Atenção', color: 'text-red-600 bg-red-100', tutorial: 'Ache o único.' },
-  { id: 'hid', screen: Screen.GAME_HIDDEN, title: 'Oculto', description: 'Foco', icon: 'Search', category: 'Atenção', color: 'text-gray-600 bg-gray-200', tutorial: 'Encontre o objeto.' },
+  { id: 'chain', screen: Screen.GAME_WORD_CHAIN, title: 'Elo de Palavras', description: 'Categorias', icon: 'Link', category: 'Linguagem', color: 'text-blue-600 bg-blue-100', tutorial: 'Encontre todas as palavras do tema.', unlockLevel: 1 },
+  { id: 'zen', screen: Screen.GAME_ZEN_FOCUS, title: 'Foco Zen', description: 'Infinito', icon: 'Eye', category: 'Zen', color: 'text-teal-600 bg-teal-100', tutorial: 'Toque apenas nos círculos.', unlockLevel: 1 },
+  { id: 'sum', screen: Screen.GAME_SUM_TARGET, title: 'Soma Alvo', description: 'Infinito', icon: 'Target', category: 'Raciocínio', color: 'text-green-600 bg-green-100', tutorial: 'Atinga a soma alvo.', unlockLevel: 1 },
+  { id: 'cards', screen: Screen.GAME_CARDS, title: 'Cartas', description: 'Sorte', icon: 'Copy', category: 'Clássico', color: 'text-red-600 bg-red-100', tutorial: 'Maior ou menor?', unlockLevel: 1 },
+  { id: 'mem', screen: Screen.GAME_MEMORY, title: 'Memória', description: 'Pares', icon: 'Brain', category: 'Memória', color: 'text-indigo-600 bg-indigo-100', tutorial: 'Encontre os pares.', unlockLevel: 1 },
+  { id: 'triv', screen: Screen.GAME_TRIVIA, title: 'Fato ou Mito?', description: 'Quiz Rápido', icon: 'Brain', category: 'Linguagem', color: 'text-blue-600 bg-blue-100', tutorial: 'É verdade ou mentira?', unlockLevel: 1 },
+  { id: 'math', screen: Screen.GAME_MATH, title: 'Cálculo', description: 'Compras', icon: 'Calculator', category: 'Raciocínio', color: 'text-emerald-600 bg-emerald-100', tutorial: 'Faça as contas.', unlockLevel: 1 },
+  { id: 'patt', screen: Screen.GAME_PATTERN, title: 'Padrões', description: 'Visual', icon: 'Grid3X3', category: 'Memória', color: 'text-purple-600 bg-purple-100', tutorial: 'Repita o padrão.', unlockLevel: 1 },
+  { id: 'est', screen: Screen.GAME_ESTIMATE, title: 'Estimativa', description: 'Qtd.', icon: 'Activity', category: 'Raciocínio', color: 'text-orange-600 bg-orange-100', tutorial: 'Estime a quantidade.', unlockLevel: 1 },
+  { id: 'rot', screen: Screen.GAME_ROTATION, title: 'Rotação', description: 'Espacial', icon: 'RotateCcw', category: 'Raciocínio', color: 'text-cyan-600 bg-cyan-100', tutorial: 'Qual a figura rodada?', unlockAd: true },
+  { id: 'rain', screen: Screen.GAME_MATH_RAIN, title: 'Chuva', description: 'Rápido', icon: 'CloudRain', category: 'Raciocínio', color: 'text-blue-600 bg-blue-100', tutorial: 'Resolva antes de cair.', unlockLevel: 3 },
+  { id: 'col', screen: Screen.GAME_COLOR_MATCH, title: 'Cores', description: 'Rápido', icon: 'Palette', category: 'Atenção', color: 'text-pink-600 bg-pink-100', tutorial: 'A cor combina?', unlockLevel: 5 },
+  { id: 'mov', screen: Screen.GAME_MOVING_HUNT, title: 'Caça', description: 'Foco', icon: 'MousePointerClick', category: 'Atenção', color: 'text-red-600 bg-red-100', tutorial: 'Ache o único.', unlockLevel: 10 },
+  { id: 'hid', screen: Screen.GAME_HIDDEN, title: 'Oculto', description: 'Foco', icon: 'Search', category: 'Atenção', color: 'text-gray-600 bg-gray-200', tutorial: 'Encontre o objeto.', unlockCost: 10000 },
 ];
 
 type LockType = 'LEVEL' | 'COINS' | 'AD';
@@ -161,13 +162,14 @@ interface GameEvent {
 }
 
 const FORCED_AD_INTERVAL = 5 * 60 * 1000;
+const MAX_LIVES = 5;
+const LIFE_REGEN_MS = 5 * 60 * 1000; // 5 minutes
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>(Screen.HOME);
   const [stats, setStats] = useState<UserStats>(INITIAL_STATS);
   const [activeTutorial, setActiveTutorial] = useState<{title: string, text: string, gameId: string} | null>(null);
   const [victoryData, setVictoryData] = useState<{score: number, gameId: string} | null>(null);
-  const [imgError, setImgError] = useState(false); 
   
   const [showAdModal, setShowAdModal] = useState(false);
   const adCallbackRef = useRef<(() => void) | null>(null);
@@ -179,7 +181,7 @@ export default function App() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   const [pendingUnlock, setPendingUnlock] = useState<PendingUnlock | null>(null);
-  const [pendingAdReward, setPendingAdReward] = useState<'NONE' | 'GAME_UNLOCK' | 'COINS' | 'GENERIC'>('NONE');
+  const [pendingAdReward, setPendingAdReward] = useState<'NONE' | 'GAME_UNLOCK' | 'COINS' | 'GENERIC' | 'LIVES'>('NONE');
 
   const [eventQueue, setEventQueue] = useState<GameEvent[]>([]);
   const [unlockedAchievement, setUnlockedAchievement] = useState<Achievement | null>(null);
@@ -189,8 +191,9 @@ export default function App() {
   const [isRatingCheck, setIsRatingCheck] = useState(false);
   const [isRaining, setIsRaining] = useState(false);
 
-  // New state for name editing feedback
   const [nameSaved, setNameSaved] = useState(false);
+  const [showLivesModal, setShowLivesModal] = useState(false);
+  const [timeToNextLife, setTimeToNextLife] = useState<string>("");
 
   useEffect(() => {
     const saved = localStorage.getItem('sabiamente_stats_v8');
@@ -208,6 +211,8 @@ export default function App() {
             if (!parsed.dailyChallengeLastCompleted) parsed.dailyChallengeLastCompleted = null;
             if (!parsed.lastWateredDate) parsed.lastWateredDate = null;
             if (!parsed.userName) parsed.userName = '';
+            if (parsed.lives === undefined) parsed.lives = 5;
+            if (parsed.lastLifeRegen === undefined) parsed.lastLifeRegen = null;
             
             const cleanStats = {...INITIAL_STATS, ...parsed};
             setStats(cleanStats);
@@ -230,6 +235,41 @@ export default function App() {
     checkAchievements(); 
     setMuted(!stats.soundEnabled);
   }, [stats]);
+
+  // Lives Regeneration Logic
+  useEffect(() => {
+    const regenInterval = setInterval(() => {
+        if (stats.lives < MAX_LIVES) {
+            const now = Date.now();
+            const lastRegen = stats.lastLifeRegen ? new Date(stats.lastLifeRegen).getTime() : now;
+            const diff = now - lastRegen;
+
+            if (diff >= LIFE_REGEN_MS) {
+                const livesToAdd = Math.floor(diff / LIFE_REGEN_MS);
+                const newLives = Math.min(MAX_LIVES, stats.lives + livesToAdd);
+                
+                // Keep the remainder to effectively keep the timer running smoothly
+                const remainder = diff % LIFE_REGEN_MS;
+                const newLastRegen = new Date(now - remainder).toISOString();
+
+                setStatsSynced(prev => ({
+                    ...prev,
+                    lives: newLives,
+                    lastLifeRegen: newLives === MAX_LIVES ? null : newLastRegen
+                }));
+            } else {
+                 // Update display timer
+                 const remaining = LIFE_REGEN_MS - diff;
+                 const m = Math.floor(remaining / 60000);
+                 const s = Math.floor((remaining % 60000) / 1000);
+                 setTimeToNextLife(`${m}:${s.toString().padStart(2, '0')}`);
+            }
+        } else {
+            setTimeToNextLife("");
+        }
+    }, 1000);
+    return () => clearInterval(regenInterval);
+  }, [stats.lives, stats.lastLifeRegen]);
 
   useEffect(() => {
       const isModalActive = levelUpData || unlockedAchievement || streakPopupValue || victoryData || pendingUnlock || showAdModal || activeTutorial;
@@ -459,6 +499,12 @@ export default function App() {
       setIsForcedAd(false);
       setShowAdModal(true);
   };
+  
+  const requestAdForLives = () => {
+      setPendingAdReward('LIVES');
+      setIsForcedAd(false);
+      setShowAdModal(true);
+  };
 
   const handleAdClosed = () => {
       setShowAdModal(false);
@@ -470,7 +516,13 @@ export default function App() {
           setStatsSynced(s => ({ ...s, unlockedGames: [...s.unlockedGames, gameId] }));
           setCurrentScreen(pendingUnlock.game.screen);
           setPendingUnlock(null);
-      } 
+      }
+      else if (pendingAdReward === 'LIVES') {
+          setStatsSynced(s => ({...s, lives: 5, lastLifeRegen: null}));
+          setShowLivesModal(false);
+          playCelebrationSound();
+          alert("Vidas restauradas!");
+      }
       else if (adCallbackRef.current) {
           adCallbackRef.current();
           adCallbackRef.current = null;
@@ -524,11 +576,29 @@ export default function App() {
       }));
       setEventQueue(prev => [...prev, { type: 'ACHIEVEMENT', data: { title: 'Desafio Vencido', description: 'Você dominou a palavra do dia!', reward: coinsWon, icon: 'Calendar' } }]); 
   };
+  
+  const handleLoseLife = () => {
+      setStatsSynced(prev => {
+          const newLives = Math.max(0, prev.lives - 1);
+          const now = new Date().toISOString();
+          // Only update lastLifeRegen if we were at full lives
+          const newLastRegen = prev.lives === MAX_LIVES ? now : prev.lastLifeRegen;
+          
+          if (newLives === 0) {
+              setShowLivesModal(true);
+          }
+          
+          return {
+              ...prev,
+              lives: newLives,
+              lastLifeRegen: newLastRegen
+          };
+      });
+  };
 
   const handleGameComplete = (score: number) => {
       const currentGame = GAMES.find(g => g.screen === currentScreen);
       const gameId = currentGame?.id || 'unknown';
-      setVictoryData({ score, gameId }); 
       
       const newHighScores = { ...stats.highScores };
       
@@ -545,25 +615,22 @@ export default function App() {
       let coinsToAdd = score;
       if (gameId === 'triv' || gameId === 'chain') {
           // For Trivia and WordChain, completing a level gives a small fixed reward
-          // regardless of the level number (score param here is actually the next level index)
           if (score > (stats.highScores[gameId] || 0)) {
-              coinsToAdd = 3; // Reduced reward for completing a new level
+              coinsToAdd = 1; // REWARD UPDATED TO 1 COIN AS PER REQUEST
           } else {
               coinsToAdd = 0; // No reward for replaying already completed levels
           }
       }
+      
+      // Pass ACTUAL earned coins to Victory Modal, not the score/level
+      setVictoryData({ score: coinsToAdd, gameId }); 
 
       let newCoins = stats.coins + coinsToAdd;
 
       if (coinsToAdd > 0) {
-          // XP Logic: 1 XP for specific level-based games, 10 XP for others
-          let xpGain = 10;
-          if (gameId === 'triv' || gameId === 'chain') {
-              xpGain = 1;
-          }
-
-          newExp += xpGain;
-
+          // EQUALIZED XP: 5 XP for every game completed successfully
+          newExp += 5; 
+          
           if (newExp >= 100) {
               newLevel += 1;
               newExp = newExp - 100;
@@ -612,6 +679,13 @@ export default function App() {
   const handleRestart = () => {
       setVictoryData(null);
       const s = currentScreen;
+      
+      // Check for lives for specific games
+      if ((s === Screen.GAME_TRIVIA || s === Screen.GAME_WORD_CHAIN) && stats.lives <= 0) {
+          setShowLivesModal(true);
+          return;
+      }
+      
       setCurrentScreen(Screen.HOME);
       setTimeout(() => setCurrentScreen(s), 50);
   };
@@ -622,7 +696,13 @@ export default function App() {
   };
 
   const tryStartGame = (game: Minigame) => {
-    // Removed all lock checks
+    // Check for lives for specific games
+    if ((game.id === 'triv' || game.id === 'chain') && stats.lives <= 0) {
+        setShowLivesModal(true);
+        return;
+    }
+    
+    // Removed isLocked checks as per requirement to unlock all games on home
     if (!stats.tutorialsSeen.includes(game.id)) {
         setActiveTutorial({ title: game.title, text: game.tutorial, gameId: game.id });
     } else {
@@ -631,7 +711,6 @@ export default function App() {
   };
   
   const handleBuyGame = () => {
-      // Function kept for compatibility but effectively unused now
       if (!pendingUnlock || !pendingUnlock.game.unlockCost) return;
       const cost = pendingUnlock.game.unlockCost;
       if (stats.coins >= cost) {
@@ -699,20 +778,21 @@ export default function App() {
 
   const renderGame = () => {
       const props = { onComplete: handleGameComplete, onExit: handleGoHome, onRequestAd: requestAd };
+      const lifeProps = { lives: stats.lives, onLoseLife: handleLoseLife };
       const getScore = (id: string) => stats.highScores[id] || 0;
 
       switch(currentScreen) {
           case Screen.GAME_MEMORY: return <MemoryGame {...props} highScore={getScore('mem')} />;
-          case Screen.GAME_TRIVIA: return <TriviaGame {...props} userCoins={stats.coins} onUseCoins={()=>{return true}} />;
+          // TRIVIA KEY FIX: Force remount on level change to reload question
+          case Screen.GAME_TRIVIA: return <TriviaGame key={getScore('triv')} {...props} {...lifeProps} userCoins={stats.coins} onUseCoins={()=>{return true}} highScore={getScore('triv')} />;
           case Screen.GAME_MATH: return <MathGame {...props} highScore={getScore('math')} />;
           case Screen.GAME_SEQUENCE: return <SequenceGame {...props} />;
           case Screen.GAME_SOUND: return <SoundGame {...props} />;
           case Screen.GAME_INTRUDER: return <IntruderGame {...props} highScore={getScore('intr')} />;
-          // GAME_PROVERB REMOVED
           case Screen.GAME_SCRAMBLE: return <ScrambleGame {...props} highScore={getScore('scram')} />;
-          case Screen.GAME_WORD_CHAIN: return <WordChainGame {...props} highScore={getScore('chain')} />;
+          case Screen.GAME_WORD_CHAIN: return <WordChainGame {...props} {...lifeProps} highScore={getScore('chain')} />;
           case Screen.GAME_ZEN_FOCUS: return <ZenFocusGame {...props} highScore={getScore('zen')} />;
-          case Screen.GAME_SUM_TARGET: return <SumTargetGame {...props} />;
+          case Screen.GAME_SUM_TARGET: return <SumTargetGame {...props} highScore={getScore('sum')} />;
           case Screen.GAME_PATTERN: return <PatternGame {...props} highScore={getScore('patt')} />;
           case Screen.GAME_ESTIMATE: return <EstimateGame {...props} highScore={getScore('est')} />;
           case Screen.GAME_ROTATION: return <RotationGame {...props} />;
@@ -786,12 +866,20 @@ export default function App() {
         <div className="flex-grow overflow-y-auto relative no-scrollbar pb-24">
             {currentScreen === Screen.HOME && (
                 <div className="px-6 space-y-6">
+                    <div className="flex flex-col items-center justify-center mb-6 mt-2">
+                        <h1 className="text-4xl font-black tracking-tighter filter drop-shadow-sm select-none">
+                            <span className="text-brand-primary">Sábia</span>
+                            <span className="text-brand-secondary">Mente</span>
+                        </h1>
+                    </div>
+
                     <div className="mt-2 relative">
                         <TreeOfMind stats={stats} onWater={handleWaterGarden} canWater={canWaterToday()} isRaining={isRaining} />
                         <div className="absolute top-0 right-0 bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 border border-orange-200 shadow-sm animate-pulse">
                             <Flame size={14} className="fill-orange-500"/>
                             {stats.streak} Dias Seguidos
                         </div>
+                        {/* Lives removed from here */}
                     </div>
                     
                     <div>
@@ -806,6 +894,7 @@ export default function App() {
                         <div className="grid grid-cols-2 gap-4 pb-4">
                             {GAMES.map(g => {
                                 const score = stats.highScores[g.id] || 0;
+                                const usesLives = g.id === 'triv' || g.id === 'chain';
 
                                 return (
                                 <button 
@@ -813,11 +902,19 @@ export default function App() {
                                     onClick={() => tryStartGame(g)} 
                                     className={`relative p-4 rounded-3xl shadow-soft border flex flex-col gap-3 transition-all bg-white border-white hover:scale-[1.02] hover:shadow-lg`}
                                 >
-                                    {score > 0 && (
-                                        <div className="absolute top-2 right-2 bg-yellow-50 text-yellow-700 border border-yellow-200 text-[10px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-0.5 shadow-sm z-10">
-                                            <Trophy size={8} className="fill-yellow-500 text-yellow-500" /> {score}
-                                        </div>
-                                    )}
+                                    <div className="absolute top-2 right-2 flex flex-col gap-1 items-end z-10">
+                                        {score > 0 && (
+                                            <div className="bg-yellow-50 text-yellow-700 border border-yellow-200 text-[10px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-0.5 shadow-sm">
+                                                <Trophy size={8} className="fill-yellow-500 text-yellow-500" /> {score}
+                                            </div>
+                                        )}
+                                        {usesLives && (
+                                            <div className="bg-red-100 text-red-700 border border-red-200 text-[10px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-0.5 shadow-sm">
+                                                <Heart size={8} className="fill-red-500" /> {stats.lives}
+                                            </div>
+                                        )}
+                                    </div>
+
                                     <div className="flex justify-between items-start">
                                         <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${g.color}`}>
                                             {renderIcon(g.icon, 24)}
@@ -835,7 +932,7 @@ export default function App() {
                                 </div>
                                 <div className="text-left">
                                     <p className="font-bold text-sm leading-tight text-gray-500">Mais em Breve</p>
-                                    <p className="text-[10px] uppercase font-bold opacity-50 mt-1">Novidades</p>
+                                    <p className="text-xs uppercase font-bold opacity-50 mt-1">Novidades</p>
                                 </div>
                             </div>
                         </div>
@@ -843,16 +940,9 @@ export default function App() {
                 </div>
             )}
             
+            {/* ... rest of renders ... */}
             {currentScreen === Screen.PROFILE && (
                 <div className="px-6 pb-28 pt-4">
-                    <div className="flex flex-col items-center justify-center mb-8 animate-in zoom-in">
-                        <h1 className="text-5xl font-black tracking-tighter mb-4 filter drop-shadow-sm select-none">
-                            <span className="text-brand-primary">Sábia</span>
-                            <span className="text-brand-secondary">Mente</span>
-                        </h1>
-                        <h2 className="text-2xl font-bold opacity-90 text-gray-800">Seu Perfil</h2>
-                    </div>
-
                     <div className="bg-white p-6 rounded-3xl shadow-soft mb-8 border border-gray-100">
                         <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1">
                             <Edit3 size={14}/> Como gostaria de ser chamado?
@@ -913,7 +1003,7 @@ export default function App() {
                     </div>
                     {!stats.hasRatedApp && (
                         <div className="mb-8">
-                            <button onClick={handleRateApp} className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white p-4 rounded-2xl shadow-lg flex items-center justify-between font-bold text-lg hover:scale-[1.02] transition-transform">
+                            <button onClick={handleRateApp} className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white p-4 rounded-2xl shadow-lg flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform">
                                 <div className="flex items-center gap-3">
                                     <Star size={24} className="fill-yellow-300 text-yellow-300"/>
                                     <div className="text-left">
@@ -948,7 +1038,9 @@ export default function App() {
                                     const lockedByLevel = item.minLevel && stats.level < item.minLevel;
                                     const isActive = stats.currentAvatar === item.value;
                                     return (
-                                        <button key={item.id} onClick={() => unlocked ? equipItem('AVATAR', item.value) : buyItem(item)} className={`p-2 rounded-2xl border-2 flex flex-col items-center gap-2 bg-white shadow-sm transition-all ${isActive ? 'border-brand-primary ring-2 ring-brand-primary/20' : 'border-transparent'}`}>
+                                        <button key={item.id} onClick={() => unlocked ? equipItem('AVATAR', item.value) : buyItem(item)} className={`p-2 rounded-2xl border-2 flex flex-col items-center gap-2 bg-white shadow-sm transition-all ${isActive ? 'border-brand-primary ring-2 ring-brand-primary/20' : 'border-transparent'}`}
+                                            disabled={lockedByLevel}
+                                        >
                                             <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center text-gray-600 relative">
                                                 {AVATARS[item.value as AvatarId]}
                                                 {lockedByLevel && <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center"><Lock size={16} className="text-white"/></div>}
@@ -1058,7 +1150,35 @@ export default function App() {
             </div>
         )}
 
-        {/* ... Modals (kept identical) ... */}
+        {/* ... Modals ... */}
+        {showLivesModal && (
+             <div className="absolute inset-0 z-[200] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md animate-in fade-in">
+                 <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl relative">
+                     <div className="mb-4 flex justify-center">
+                         <div className="bg-red-100 p-4 rounded-full"><Heart size={48} className="text-red-500 fill-red-500"/></div>
+                     </div>
+                     <h2 className="text-2xl font-black text-gray-800 mb-2">Sem Vidas!</h2>
+                     <p className="text-gray-600 mb-4">Suas vidas acabaram. Aguarde recarregar ou assista um vídeo para recuperar todas agora.</p>
+                     
+                     <div className="bg-gray-100 p-4 rounded-xl mb-6 flex items-center justify-center gap-2">
+                         <Clock size={20} className="text-gray-500"/>
+                         <span className="font-mono text-xl font-bold text-gray-700">{timeToNextLife || "5:00"}</span>
+                         <span className="text-xs text-gray-400 font-bold uppercase">Próxima Vida</span>
+                     </div>
+                     
+                     <div className="space-y-3">
+                        <button onClick={requestAdForLives} className="w-full py-4 bg-red-500 text-white font-bold text-lg rounded-xl shadow-lg flex items-center justify-center gap-2 hover:bg-red-600 transition-colors">
+                            <Video fill="currentColor"/> Recuperar TUDO
+                        </button>
+                        <button onClick={() => setShowLivesModal(false)} className="text-gray-400 font-bold py-2">
+                            Fechar
+                        </button>
+                     </div>
+                 </div>
+             </div>
+        )}
+
+        {/* ... Other modals ... */}
         {pendingUnlock && (
              <div className="absolute inset-0 z-[70] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md animate-in fade-in">
                  <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl relative">

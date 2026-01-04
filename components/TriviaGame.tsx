@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Check, X, Coins, Brain, ArrowRight, Video, ThumbsUp, ThumbsDown, HelpCircle, Trophy, Star } from 'lucide-react';
+import { Check, X, Coins, Brain, ArrowRight, Video, ThumbsUp, ThumbsDown, HelpCircle, Trophy, Star, Heart, Sparkles } from 'lucide-react';
 import { LoadingScreen } from './LoadingScreen';
 import { playSuccessSound, playFailureSound } from '../services/audioService';
 
@@ -11,9 +11,11 @@ interface TriviaGameProps {
   onUseCoins: (amount: number) => boolean;
   onRequestAd: (cb: () => void) => void;
   highScore?: number; // Usado como Nível Atual
+  lives: number;
+  onLoseLife: () => void;
 }
 
-// 150 PERGUNTAS ÚNICAS
+// 200 PERGUNTAS ÚNICAS
 const FACTS_DB = [
     { s: "O Sol é uma estrela.", isFact: true, exp: "Sim, é a anã amarela central do nosso sistema." },
     { s: "A Grande Muralha da China é a única obra humana visível da Lua.", isFact: false, exp: "Mito. Nenhuma obra é visível a olho nu da Lua." },
@@ -152,14 +154,64 @@ const FACTS_DB = [
     { s: "A Estátua da Liberdade é de cobre.", isFact: true, exp: "A cor verde é oxidação (pátina)." },
     { s: "O menor país da América do Sul é o Suriname.", isFact: true, exp: "Correto." },
     { s: "O cavalo-marinho macho engravida.", isFact: true, exp: "Ele carrega os ovos na bolsa." },
-    { s: "A capital do Egito é Cairo.", isFact: true, exp: "Correto." }
+    { s: "A capital do Egito é Cairo.", isFact: true, exp: "Correto." },
+    { s: "O Brasil é o maior exportador de soja.", isFact: true, exp: "É um dos líderes mundiais." },
+    { s: "A França tem mais fusos horários que a Rússia.", isFact: true, exp: "Devido aos territórios ultramarinos (12 fusos)." },
+    { s: "O avestruz tem o olho maior que o cérebro.", isFact: true, exp: "Verdade." },
+    { s: "O Brasil tem neve.", isFact: true, exp: "Em cidades do sul, como São Joaquim, ocasionalmente." },
+    { s: "O cérebro não sente dor.", isFact: true, exp: "Não possui receptores de dor, embora processe a dor do corpo." },
+    { s: "O ketchup foi vendido como remédio.", isFact: true, exp: "No século 19, para indigestão." },
+    { s: "A Lua se afasta da Terra anualmente.", isFact: true, exp: "Cerca de 3,8 cm por ano." },
+    { s: "O Monte Fuji é um vulcão ativo.", isFact: true, exp: "Apesar de não entrar em erupção desde 1707." },
+    { s: "O Sol gira em torno da Terra.", isFact: false, exp: "Mito. A Terra gira em torno do Sol." },
+    { s: "O Brasil foi descoberto por espanhóis.", isFact: false, exp: "Mito. Oficialmente por portugueses (Cabral)." },
+    { s: "A Antártida é um continente.", isFact: true, exp: "Sim, coberto de gelo." },
+    { s: "O tomate é vermelho por causa do licopeno.", isFact: true, exp: "É um pigmento antioxidante." },
+    { s: "O hino nacional tem letra de Rui Barbosa.", isFact: false, exp: "Mito. Letra de Joaquim Osório Duque-Estrada." },
+    { s: "O Brasil é o maior país da América do Sul.", isFact: true, exp: "Cobre quase metade do continente." },
+    { s: "O urso panda come principalmente carne.", isFact: false, exp: "Mito. Come quase exclusivamente bambu." },
+    { s: "A capital da Austrália é Sydney.", isFact: false, exp: "Mito. É Canberra." },
+    { s: "O mercúrio é líquido à temperatura ambiente.", isFact: true, exp: "É o único metal líquido nessas condições." },
+    { s: "O Brasil já foi império.", isFact: true, exp: "De 1822 a 1889." },
+    { s: "O tigre é nativo da África.", isFact: false, exp: "Mito. É nativo da Ásia." },
+    { s: "A capital do Japão é Kyoto.", isFact: false, exp: "Mito. É Tóquio." },
+    { s: "O cavalo dorme de pé.", isFact: true, exp: "Possui um mecanismo nas pernas para travar." },
+    { s: "O Brasil tem 5 regiões.", isFact: true, exp: "Norte, Nordeste, Centro-Oeste, Sudeste e Sul." },
+    { s: "A capital da Espanha é Barcelona.", isFact: false, exp: "Mito. É Madri." },
+    { s: "O som se propaga no espaço.", isFact: false, exp: "Mito. O espaço é vácuo, não há meio para o som." },
+    { s: "O Brasil sediou as Olimpíadas de 2016.", isFact: true, exp: "No Rio de Janeiro." },
+    { s: "A capital da França é Paris.", isFact: true, exp: "Correto." },
+    { s: "O elefante tem medo de rato.", isFact: false, exp: "Mito. É uma lenda urbana." },
+    { s: "O Brasil tem fronteira com o Peru.", isFact: true, exp: "Sim, no estado do Acre e Amazonas." },
+    { s: "A capital da Inglaterra é Londres.", isFact: true, exp: "Correto." },
+    { s: "O Brasil fala espanhol.", isFact: false, exp: "Mito. Fala português." },
+    { s: "A capital da Itália é Roma.", isFact: true, exp: "Correto." },
+    { s: "O Brasil é cortado pela Linha do Equador.", isFact: true, exp: "No norte do país." },
+    { s: "A capital dos EUA é Nova Iorque.", isFact: false, exp: "Mito. É Washington D.C." },
+    { s: "O Brasil tem o maior rio do mundo.", isFact: true, exp: "O Amazonas (em volume de água)." },
+    { s: "A capital da Rússia é Moscou.", isFact: true, exp: "Correto." },
+    { s: "O Brasil tem 27 estados.", isFact: false, exp: "Mito. Tem 26 estados e 1 Distrito Federal." },
+    { s: "A capital da Alemanha é Berlim.", isFact: true, exp: "Correto." },
+    { s: "O Brasil tem litoral no Oceano Pacífico.", isFact: false, exp: "Mito. Apenas no Atlântico." },
+    { s: "A capital da China é Pequim.", isFact: true, exp: "Correto." },
+    { s: "O Brasil é o maior produtor de laranjas.", isFact: true, exp: "Lidera a produção mundial." },
+    { s: "A capital da Argentina é Buenos Aires.", isFact: true, exp: "Correto." },
+    { s: "O Brasil tem vulcões.", isFact: false, exp: "Mito. Não há vulcões ativos." },
+    { s: "A capital do Canadá é Ottawa.", isFact: true, exp: "Correto." },
+    { s: "O Brasil tem deserto.", isFact: false, exp: "Mito. Tem áreas semiáridas, mas não desertos clássicos." },
+    { s: "A capital da Índia é Nova Deli.", isFact: true, exp: "Correto." },
+    { s: "O Brasil tem a maior floresta tropical.", isFact: true, exp: "A Amazônia." },
+    { s: "A capital do Egito é Cairo.", isFact: true, exp: "Correto." },
+    { s: "O Brasil tem urso polar.", isFact: false, exp: "Mito. Não é habitat natural." },
+    { s: "A capital da Coreia do Sul é Seul.", isFact: true, exp: "Correto." }
 ];
 
-const TriviaGame: React.FC<TriviaGameProps> = ({ onComplete, onExit, userCoins, onRequestAd, highScore }) => {
+const TriviaGame: React.FC<TriviaGameProps> = ({ onComplete, onExit, userCoins, onRequestAd, highScore, lives, onLoseLife }) => {
   const [currentQuestion, setCurrentQuestion] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [answered, setAnswered] = useState(false);
   const [lastResult, setLastResult] = useState<'CORRECT' | 'WRONG' | null>(null);
+  const [oracleHint, setOracleHint] = useState<string | null>(null);
   
   // HighScore aqui representa o NÍVEL ATUAL (Índice da pergunta)
   const currentLevel = highScore || 0;
@@ -177,6 +229,7 @@ const TriviaGame: React.FC<TriviaGameProps> = ({ onComplete, onExit, userCoins, 
     setLoading(true);
     setAnswered(false);
     setLastResult(null);
+    setOracleHint(null);
     
     // Carrega a pergunta baseada no nível do usuário
     const q = FACTS_DB[currentLevel];
@@ -197,6 +250,7 @@ const TriviaGame: React.FC<TriviaGameProps> = ({ onComplete, onExit, userCoins, 
     } else {
       playFailureSound();
       setLastResult('WRONG');
+      onLoseLife(); // Perde vida ao errar
     }
   };
 
@@ -206,16 +260,25 @@ const TriviaGame: React.FC<TriviaGameProps> = ({ onComplete, onExit, userCoins, 
           onComplete(currentLevel + 1); 
           // O App.tsx atualiza o highScore e o useEffect recarrega a pergunta
       } else {
-          // Tenta novamente a mesma pergunta
-          setAnswered(false);
-          setLastResult(null);
+          // Se errou, e ainda tem vidas, permite tentar novamente (na prática, recarrega a questão)
+          if (lives > 0) {
+              setAnswered(false);
+              setLastResult(null);
+              setOracleHint(null);
+          } else {
+              // Se acabou as vidas, não faz nada aqui, o App.tsx mostra o modal
+          }
       }
   };
 
   const handleAdvantage = () => {
+      // Captura o objeto atual antes do callback
+      const currentQ = currentQuestion;
+      
       onRequestAd(() => {
-          if (currentQuestion) {
-              alert(`O Oráculo diz: Isso é ${currentQuestion.isFact ? "VERDADE" : "MITO"}!`);
+          if (currentQ) {
+              const answerText = currentQ.isFact ? "VERDADE" : "MITO";
+              setOracleHint(`A resposta correta é: ${answerText}`);
           }
       });
   }
@@ -228,7 +291,7 @@ const TriviaGame: React.FC<TriviaGameProps> = ({ onComplete, onExit, userCoins, 
         <div className="flex flex-col h-full bg-brand-bg items-center justify-center p-8 text-center">
             <Trophy size={80} className="text-yellow-500 mb-6 animate-bounce" />
             <h1 className="text-3xl font-black text-gray-800 mb-4">Sábio Supremo!</h1>
-            <p className="text-xl text-gray-600 mb-8">Você completou todas as 150 perguntas de Fato ou Mito.</p>
+            <p className="text-xl text-gray-600 mb-8">Você completou todas as 200 perguntas de Fato ou Mito.</p>
             <div className="bg-white p-6 rounded-2xl shadow-soft mb-8 border border-yellow-200">
                 <p className="font-bold text-gray-500 uppercase text-xs mb-2">Sua Jornada</p>
                 <p className="text-lg font-bold text-gray-800">Mais perguntas em breve!</p>
@@ -250,16 +313,21 @@ const TriviaGame: React.FC<TriviaGameProps> = ({ onComplete, onExit, userCoins, 
                 </div>
                 <div>
                     <h2 className="text-xl font-bold text-gray-800 leading-none">Fato ou Mito?</h2>
-                    <span className="text-xs font-bold text-gray-500 flex items-center gap-1">Nível {currentLevel + 1}/150</span>
+                    <span className="text-xs font-bold text-gray-500 flex items-center gap-1">Nível {currentLevel + 1}/200</span>
                 </div>
             </div>
             <button onClick={onExit} className="p-3 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors">
                 <X size={20} className="text-gray-600" />
             </button>
         </div>
-        {/* Barra de Progresso */}
-        <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
-            <div className="bg-blue-500 h-full transition-all duration-500" style={{ width: `${((currentLevel)/150)*100}%` }}></div>
+        
+        <div className="flex items-center justify-between gap-2">
+            <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden flex-grow">
+                <div className="bg-blue-500 h-full transition-all duration-500" style={{ width: `${((currentLevel)/200)*100}%` }}></div>
+            </div>
+            <div className="flex items-center gap-1 bg-red-100 text-red-600 px-2 py-1 rounded-full text-xs font-bold whitespace-nowrap">
+                <Heart size={12} className="fill-current"/> {lives}
+            </div>
         </div>
       </div>
 
@@ -303,9 +371,16 @@ const TriviaGame: React.FC<TriviaGameProps> = ({ onComplete, onExit, userCoins, 
                         MITO
                     </button>
                 </div>
-                <button onClick={handleAdvantage} className="w-full text-blue-500 font-bold flex items-center justify-center gap-2 py-2">
-                    <Video size={16}/> Pedir Ajuda
-                </button>
+                
+                {oracleHint ? (
+                    <div className="mt-2 p-4 bg-yellow-50 text-yellow-800 rounded-xl border border-yellow-200 text-center font-bold animate-pulse flex items-center justify-center gap-2 shadow-sm">
+                        <Sparkles size={20} className="text-yellow-600"/> {oracleHint}
+                    </div>
+                ) : (
+                    <button onClick={handleAdvantage} className="w-full text-blue-500 font-bold flex items-center justify-center gap-2 py-2 cursor-pointer hover:bg-blue-50 rounded-lg transition-colors">
+                        <Video size={16}/> Perguntar ao Oráculo (Vídeo)
+                    </button>
+                )}
             </div>
         ) : (
             <div className="flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-4">
@@ -314,7 +389,7 @@ const TriviaGame: React.FC<TriviaGameProps> = ({ onComplete, onExit, userCoins, 
                     className={`w-full py-4 rounded-2xl font-bold text-xl flex items-center justify-center gap-2 shadow-lg transition-transform hover:scale-[1.02]
                     ${lastResult === 'CORRECT' ? 'bg-brand-primary text-white' : 'bg-gray-800 text-white'}`}
                 >
-                    {lastResult === 'CORRECT' ? <>Próximo Nível <ArrowRight/></> : <>Tentar Novamente <Video size={20}/></>}
+                    {lastResult === 'CORRECT' ? <>Próximo (+1 <Coins size={16}/>) <ArrowRight/></> : <>Tentar Novamente <Video size={20}/></>}
                 </button>
             </div>
         )}

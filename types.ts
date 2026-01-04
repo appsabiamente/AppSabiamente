@@ -90,6 +90,10 @@ export interface UserStats {
   dailyChallengesWon: number;
 
   lastWateredDate: string | null; 
+
+  // New Life System
+  lives: number;
+  lastLifeRegen: string | null; // ISO Date string
 }
 
 export interface Minigame {
