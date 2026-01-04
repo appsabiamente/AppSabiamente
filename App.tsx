@@ -776,6 +776,14 @@ export default function App() {
       }
   };
 
+  const handleCloseLivesModal = () => {
+      setShowLivesModal(false);
+      // Force exit if in a life-dependent game and no lives recovered
+      if (stats.lives <= 0 && (currentScreen === Screen.GAME_TRIVIA || currentScreen === Screen.GAME_WORD_CHAIN)) {
+          setCurrentScreen(Screen.HOME);
+      }
+  };
+
   const renderGame = () => {
       const props = { onComplete: handleGameComplete, onExit: handleGoHome, onRequestAd: requestAd };
       const lifeProps = { lives: stats.lives, onLoseLife: handleLoseLife };
@@ -895,12 +903,13 @@ export default function App() {
                             {GAMES.map(g => {
                                 const score = stats.highScores[g.id] || 0;
                                 const usesLives = g.id === 'triv' || g.id === 'chain';
+                                const isLockedNoLives = usesLives && stats.lives <= 0;
 
                                 return (
                                 <button 
                                     key={g.id} 
                                     onClick={() => tryStartGame(g)} 
-                                    className={`relative p-4 rounded-3xl shadow-soft border flex flex-col gap-3 transition-all bg-white border-white hover:scale-[1.02] hover:shadow-lg`}
+                                    className={`relative p-4 rounded-3xl shadow-soft border flex flex-col gap-3 transition-all ${isLockedNoLives ? 'bg-gray-100 border-gray-200 grayscale opacity-80 cursor-not-allowed' : 'bg-white border-white hover:scale-[1.02] hover:shadow-lg'}`}
                                 >
                                     <div className="absolute top-2 right-2 flex flex-col gap-1 items-end z-10">
                                         {score > 0 && (
@@ -917,7 +926,7 @@ export default function App() {
 
                                     <div className="flex justify-between items-start">
                                         <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${g.color}`}>
-                                            {renderIcon(g.icon, 24)}
+                                            {isLockedNoLives ? <Lock size={24} className="text-gray-400"/> : renderIcon(g.icon, 24)}
                                         </div>
                                     </div>
                                     <div className="text-left">
@@ -1170,7 +1179,7 @@ export default function App() {
                         <button onClick={requestAdForLives} className="w-full py-4 bg-red-500 text-white font-bold text-lg rounded-xl shadow-lg flex items-center justify-center gap-2 hover:bg-red-600 transition-colors">
                             <Video fill="currentColor"/> Recuperar TUDO
                         </button>
-                        <button onClick={() => setShowLivesModal(false)} className="text-gray-400 font-bold py-2">
+                        <button onClick={handleCloseLivesModal} className="text-gray-400 font-bold py-2">
                             Fechar
                         </button>
                      </div>

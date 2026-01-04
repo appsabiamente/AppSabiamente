@@ -20,6 +20,14 @@ const MOTIVATION = [
     "Aprender algo novo rejuvenesce a mente."
 ];
 
+// 21 Stages
+const STAGES = [
+  "Semente", "Broto", "Plântula", "Muda", "Arbusto", 
+  "Ramificação", "Folhagem", "Botão", "Floração", "Polinização",
+  "Frutificação", "Maturação", "Colheita", "Poda", "Dormência",
+  "Renovação", "Bosque", "Floresta", "Ecossistema", "Bioma", "Biosfera"
+];
+
 const RainEffect = () => (
     <div className="absolute inset-0 z-50 pointer-events-none rounded-3xl overflow-hidden">
         {[...Array(30)].map((_, i) => (
@@ -43,27 +51,44 @@ const RainEffect = () => (
 );
 
 const TreeOfMind: React.FC<TreeOfMindProps> = ({ stats, onWater, canWater, isRaining }) => {
-  const level = stats.level;
+  const level = Math.max(1, stats.level);
   const [message, setMessage] = useState(MOTIVATION[0]);
 
   useEffect(() => {
-      // Pick a message based on day of month to correspond somewhat to 'daily' feel
       const day = new Date().getDate();
       setMessage(MOTIVATION[day % MOTIVATION.length]);
   }, []);
 
   // Determine Growth Stage
-  let stageName = 'SEMENTE';
-  let stageKey = 'SEED';
+  const stageIndex = Math.min(level - 1, STAGES.length - 1);
+  const stageName = STAGES[stageIndex];
 
-  if (level >= 2) { stageKey = 'SPROUT'; stageName = 'BROTO'; }
-  if (level >= 5) { stageKey = 'SAPLING'; stageName = 'MUDA'; }
-  if (level >= 10) { stageKey = 'TREE'; stageName = 'ÁRVORE'; }
-  if (level >= 20) { stageKey = 'BLOOM'; stageName = 'FLORESCER'; }
-  if (level >= 30) { stageKey = 'MYSTIC'; stageName = 'MÍSTICA'; }
+  // Visual Mapping Helper
+  const getVisualType = (lvl: number) => {
+      if(lvl <= 1) return 'SEED';
+      if(lvl <= 2) return 'SPROUT';
+      if(lvl <= 3) return 'PLANTULA'; // slightly bigger sprout
+      if(lvl <= 4) return 'SAPLING';
+      if(lvl <= 5) return 'BUSH';
+      if(lvl <= 6) return 'BRANCHING';
+      if(lvl <= 7) return 'FOLIAGE';
+      if(lvl <= 8) return 'BUDS';
+      if(lvl <= 9) return 'FLOWERING';
+      if(lvl <= 10) return 'POLLINATION';
+      if(lvl <= 11) return 'FRUIT_SMALL';
+      if(lvl <= 12) return 'FRUIT_LARGE';
+      if(lvl <= 13) return 'HARVEST';
+      if(lvl <= 14) return 'PRUNED';
+      if(lvl <= 15) return 'DORMANT';
+      if(lvl <= 16) return 'RENEWAL';
+      // 17-21 Forest stages
+      return 'FOREST';
+  };
+
+  const visual = getVisualType(level);
 
   const renderTreeSvg = () => {
-    switch (stageKey) {
+    switch (visual) {
         case 'SEED':
             return (
                 <g transform="translate(100, 180)">
@@ -80,6 +105,16 @@ const TreeOfMind: React.FC<TreeOfMindProps> = ({ stats, onWater, canWater, isRai
                      <circle cx="10" cy="-60" r="12" fill="#66BB6A" />
                 </g>
             );
+        case 'PLANTULA':
+            return (
+                <g transform="translate(100, 190)">
+                     <path d="M0,0 Q0,-40 -15,-60" stroke="#5D4037" strokeWidth="5" fill="none" />
+                     <path d="M0,0 Q5,-50 20,-70" stroke="#5D4037" strokeWidth="5" fill="none" />
+                     <circle cx="-15" cy="-60" r="14" fill="#66BB6A" />
+                     <circle cx="20" cy="-70" r="16" fill="#66BB6A" />
+                     <circle cx="0" cy="-40" r="10" fill="#81C784" />
+                </g>
+            );
         case 'SAPLING':
             return (
                 <g transform="translate(100, 200)">
@@ -89,53 +124,155 @@ const TreeOfMind: React.FC<TreeOfMindProps> = ({ stats, onWater, canWater, isRai
                     <circle cx="20" cy="-70" r="20" fill="#81C784" />
                 </g>
             );
-        case 'TREE':
+        case 'BUSH':
             return (
                 <g transform="translate(100, 200)">
-                    <path d="M0,0 Q0,-100 -20,-140" stroke="#4E342E" strokeWidth="18" fill="none"/>
-                    <path d="M0,0 Q0,-90 20,-130" stroke="#4E342E" strokeWidth="18" fill="none"/>
-                    <circle cx="-20" cy="-140" r="50" fill="#388E3C" />
-                    <circle cx="20" cy="-130" r="55" fill="#2E7D32" />
-                    <circle cx="0" cy="-160" r="40" fill="#4CAF50" />
+                    <path d="M0,0 L0,-60" stroke="#5D4037" strokeWidth="14" strokeLinecap="round" />
+                    <circle cx="0" cy="-60" r="50" fill="#388E3C" />
+                    <circle cx="-30" cy="-50" r="40" fill="#4CAF50" />
+                    <circle cx="30" cy="-50" r="40" fill="#4CAF50" />
+                    <circle cx="0" cy="-90" r="30" fill="#81C784" />
                 </g>
             );
-        case 'BLOOM':
+        case 'BRANCHING':
             return (
                 <g transform="translate(100, 200)">
-                    {/* Trunk */}
-                    <path d="M0,0 C-10,-50 10,-100 0,-150" stroke="#3E2723" strokeWidth="22" fill="none"/>
-                    {/* Canopy */}
-                    <circle cx="0" cy="-150" r="70" fill="#1B5E20" />
-                    <circle cx="-40" cy="-130" r="50" fill="#2E7D32" />
-                    <circle cx="40" cy="-130" r="50" fill="#2E7D32" />
-                    <circle cx="0" cy="-180" r="50" fill="#43A047" />
+                    <path d="M0,0 Q0,-80 -20,-120" stroke="#4E342E" strokeWidth="16" fill="none"/>
+                    <path d="M0,0 Q0,-70 20,-110" stroke="#4E342E" strokeWidth="16" fill="none"/>
+                    <path d="M0,-40 L-40,-80" stroke="#4E342E" strokeWidth="10" fill="none"/>
+                    <path d="M0,-50 L40,-90" stroke="#4E342E" strokeWidth="10" fill="none"/>
+                    {/* Sparse leaves */}
+                    <circle cx="-20" cy="-120" r="15" fill="#4CAF50" />
+                    <circle cx="20" cy="-110" r="15" fill="#4CAF50" />
+                    <circle cx="-40" cy="-80" r="15" fill="#4CAF50" />
+                    <circle cx="40" cy="-90" r="15" fill="#4CAF50" />
+                </g>
+            );
+        case 'FOLIAGE':
+            return (
+                <g transform="translate(100, 200)">
+                    <path d="M0,0 L0,-120" stroke="#4E342E" strokeWidth="20" fill="none"/>
+                    <circle cx="0" cy="-120" r="60" fill="#2E7D32" />
+                    <circle cx="-40" cy="-100" r="50" fill="#388E3C" />
+                    <circle cx="40" cy="-100" r="50" fill="#388E3C" />
+                    <circle cx="0" cy="-160" r="40" fill="#43A047" />
+                </g>
+            );
+        case 'BUDS':
+            return (
+                <g transform="translate(100, 200)">
+                    <path d="M0,0 L0,-120" stroke="#4E342E" strokeWidth="20" fill="none"/>
+                    <circle cx="0" cy="-120" r="60" fill="#2E7D32" />
+                    <circle cx="-40" cy="-100" r="50" fill="#388E3C" />
+                    <circle cx="40" cy="-100" r="50" fill="#388E3C" />
+                    <circle cx="0" cy="-160" r="40" fill="#43A047" />
+                    {/* Buds */}
+                    <circle cx="-20" cy="-130" r="5" fill="#F48FB1" />
+                    <circle cx="20" cy="-130" r="5" fill="#F48FB1" />
+                    <circle cx="0" cy="-100" r="5" fill="#F48FB1" />
+                    <circle cx="-30" cy="-90" r="5" fill="#F48FB1" />
+                    <circle cx="30" cy="-90" r="5" fill="#F48FB1" />
+                </g>
+            );
+        case 'FLOWERING':
+        case 'POLLINATION':
+            return (
+                <g transform="translate(100, 200)">
+                    <path d="M0,0 L0,-120" stroke="#4E342E" strokeWidth="20" fill="none"/>
+                    <circle cx="0" cy="-120" r="60" fill="#2E7D32" />
+                    <circle cx="-40" cy="-100" r="50" fill="#388E3C" />
+                    <circle cx="40" cy="-100" r="50" fill="#388E3C" />
+                    <circle cx="0" cy="-160" r="40" fill="#43A047" />
                     {/* Flowers */}
-                    <circle cx="-20" cy="-150" r="8" fill="#F06292" className="animate-pulse" />
-                    <circle cx="30" cy="-160" r="8" fill="#F06292" className="animate-pulse" />
-                    <circle cx="10" cy="-120" r="8" fill="#F06292" className="animate-pulse" />
-                    <circle cx="-30" cy="-180" r="8" fill="#F06292" className="animate-pulse" />
+                    <circle cx="-20" cy="-130" r="8" fill="#F06292" className="animate-pulse" />
+                    <circle cx="20" cy="-130" r="8" fill="#F06292" className="animate-pulse" />
+                    <circle cx="0" cy="-100" r="8" fill="#F06292" className="animate-pulse" />
+                    <circle cx="-35" cy="-90" r="8" fill="#F06292" className="animate-pulse" />
+                    <circle cx="35" cy="-90" r="8" fill="#F06292" className="animate-pulse" />
+                    {visual === 'POLLINATION' && (
+                        <>
+                            <circle cx="-50" cy="-150" r="2" fill="yellow" className="animate-ping" />
+                            <circle cx="50" cy="-140" r="2" fill="yellow" className="animate-ping" style={{animationDelay: '0.5s'}} />
+                        </>
+                    )}
                 </g>
             );
-        case 'MYSTIC':
+        case 'FRUIT_SMALL':
+        case 'FRUIT_LARGE':
+        case 'HARVEST':
+            const fruitSize = visual === 'FRUIT_SMALL' ? 6 : 10;
+            const fruitColor = visual === 'HARVEST' ? '#FFD700' : '#FF5252'; // Gold for harvest
+            return (
+                <g transform="translate(100, 200)">
+                    <path d="M0,0 L0,-130" stroke="#4E342E" strokeWidth="22" fill="none"/>
+                    <circle cx="0" cy="-130" r="65" fill="#1B5E20" />
+                    <circle cx="-45" cy="-110" r="55" fill="#2E7D32" />
+                    <circle cx="45" cy="-110" r="55" fill="#2E7D32" />
+                    <circle cx="0" cy="-170" r="45" fill="#43A047" />
+                    <circle cx="-25" cy="-140" r={fruitSize} fill={fruitColor} />
+                    <circle cx="25" cy="-140" r={fruitSize} fill={fruitColor} />
+                    <circle cx="0" cy="-110" r={fruitSize} fill={fruitColor} />
+                    <circle cx="-40" cy="-100" r={fruitSize} fill={fruitColor} />
+                    <circle cx="40" cy="-100" r={fruitSize} fill={fruitColor} />
+                </g>
+            );
+        case 'PRUNED':
+            return (
+                <g transform="translate(100, 200)">
+                    <path d="M0,0 L0,-100" stroke="#4E342E" strokeWidth="22" fill="none"/>
+                    <circle cx="0" cy="-100" r="60" fill="#4CAF50" /> {/* Clean round shape */}
+                </g>
+            );
+        case 'DORMANT':
+            return (
+                <g transform="translate(100, 200)">
+                    <path d="M0,0 L0,-100" stroke="#5D4037" strokeWidth="22" fill="none"/>
+                    <path d="M0,-60 L-40,-100" stroke="#5D4037" strokeWidth="12" fill="none"/>
+                    <path d="M0,-70 L40,-110" stroke="#5D4037" strokeWidth="12" fill="none"/>
+                    <path d="M-40,-100 L-60,-130" stroke="#5D4037" strokeWidth="8" fill="none"/>
+                    <path d="M40,-110 L60,-140" stroke="#5D4037" strokeWidth="8" fill="none"/>
+                    <path d="M0,-100 L0,-150" stroke="#5D4037" strokeWidth="12" fill="none"/>
+                </g>
+            );
+        case 'RENEWAL':
+            return (
+                <g transform="translate(100, 200)">
+                    <path d="M0,0 L0,-100" stroke="#5D4037" strokeWidth="22" fill="none"/>
+                    <path d="M0,-60 L-40,-100" stroke="#5D4037" strokeWidth="12" fill="none"/>
+                    <path d="M0,-70 L40,-110" stroke="#5D4037" strokeWidth="12" fill="none"/>
+                    <path d="M0,-100 L0,-150" stroke="#5D4037" strokeWidth="12" fill="none"/>
+                    {/* Tiny fresh leaves */}
+                    <circle cx="-60" cy="-130" r="8" fill="#B9F6CA" />
+                    <circle cx="60" cy="-140" r="8" fill="#B9F6CA" />
+                    <circle cx="0" cy="-150" r="8" fill="#B9F6CA" />
+                    <circle cx="-20" cy="-100" r="8" fill="#B9F6CA" />
+                    <circle cx="20" cy="-110" r="8" fill="#B9F6CA" />
+                </g>
+            );
+        case 'FOREST':
              return (
                 <g transform="translate(100, 200)">
+                    {/* Background Trees */}
+                    <g transform="translate(-60, -20) scale(0.6)">
+                        <path d="M0,0 L0,-80" stroke="#5D4037" strokeWidth="12" />
+                        <circle cx="0" cy="-90" r="40" fill="#2E7D32" opacity="0.6"/>
+                    </g>
+                    <g transform="translate(60, -20) scale(0.6)">
+                        <path d="M0,0 L0,-80" stroke="#5D4037" strokeWidth="12" />
+                        <circle cx="0" cy="-90" r="40" fill="#2E7D32" opacity="0.6"/>
+                    </g>
+
+                    {/* Main Mystic Tree */}
                     {/* Glowing Aura */}
-                    <circle cx="0" cy="-150" r="90" fill="#FFD700" fillOpacity="0.2" className="animate-pulse"/>
-                    {/* Trunk */}
+                    <circle cx="0" cy="-150" r="90" fill="#FFD700" fillOpacity="0.1" className="animate-pulse"/>
                     <path d="M0,0 C-15,-60 15,-120 0,-160" stroke="#3E2723" strokeWidth="25" fill="none"/>
-                    {/* Canopy */}
                     <circle cx="0" cy="-160" r="75" fill="#004D40" />
                     <circle cx="-45" cy="-140" r="55" fill="#00695C" />
                     <circle cx="45" cy="-140" r="55" fill="#00695C" />
                     <circle cx="0" cy="-200" r="55" fill="#00796B" />
-                    {/* Golden Fruits */}
                     <circle cx="-20" cy="-160" r="10" fill="#FFD700" />
                     <circle cx="30" cy="-170" r="10" fill="#FFD700" />
                     <circle cx="0" cy="-130" r="10" fill="#FFD700" />
-                    <circle cx="-35" cy="-190" r="10" fill="#FFD700" />
-                    <path d="M-50, -50 L50,-50" stroke="none" fill="none">
-                         <animateMotion dur="10s" repeatCount="indefinite" path="M0,0 Q20,-20 40,0 T80,0" />
-                    </path>
                 </g>
              );
         default: return null;
